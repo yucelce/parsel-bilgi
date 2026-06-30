@@ -1,9 +1,9 @@
+// src/components/ParcelMap.tsx
 import React, { useState, useEffect, useRef } from 'react';
-
-import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, Tooltip, useMap, LayersControl } from 'react-leaflet';
+import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Tooltip, useMap, LayersControl, ZoomControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
-import { Upload, Focus, Download, Edit2 } from 'lucide-react';
+import { Upload, Focus, Database } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -20,48 +20,45 @@ function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
   return null;
 }
 
-interface ParcelMapProps {
-  onEditParcel?: (id: string) => void;
-  onSelectParcel?: (parcel: any) => void; // YENİ: Tıklanan parseli App.tsx'e gönderecek
-  selectedParcelId?: string | null;       // YENİ: Seçili parselin sarı renk olmasını sağlayacak
-}
-
-export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId }: ParcelMapProps) {
-  // ParcelMap bileşeni içine eklenecek yeni state
-const [currentZoom, setCurrentZoom] = useState<number>(6); // Varsayılan zoom seviyesi
-
 // Zoom değişikliklerini dinleyen yardımcı bileşen
-function ZoomListener() {
+function ZoomListener({ setCurrentZoom }: { setCurrentZoom: (zoom: number) => void }) {
   const map = useMap();
   useEffect(() => {
-    setCurrentZoom(map.getZoom()); // İlk yüklemede zoomu al
+    setCurrentZoom(map.getZoom()); 
     const onZoomEnd = () => setCurrentZoom(map.getZoom());
     map.on('zoomend', onZoomEnd);
     return () => {
       map.off('zoomend', onZoomEnd);
     };
-  }, [map]);
+  }, [map, setCurrentZoom]);
   return null;
 }
+
+interface ParcelMapProps {
+  onEditParcel?: (id: string) => void;
+  onSelectParcel?: (parcel: any) => void;
+  selectedParcelId?: string | null;
+  onOpenAdmin?: () => void;
+}
+
+export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId, onOpenAdmin }: ParcelMapProps) {
   const defaultCenter: [number, number] = [39.92077, 32.85411]; 
+  const [currentZoom, setCurrentZoom] = useState<number>(6); 
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   
   const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
   const [uploading, setUploading] = useState<boolean>(false); 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mapRef = useRef<L.Map>(null); // Haritaya dışarıdan müdahale için referans
+  const mapRef = useRef<L.Map>(null); 
 
   const fetchParcels = (isInitialLoad = false) => {
     fetch('/api/parcels')
       .then(async (res) => {
-        if (!res.ok) {
-          throw new Error(`API Hatası: Sunucu ${res.status} döndürdü.`);
-        }
+        if (!res.ok) throw new Error(`API Hatası: Sunucu ${res.status} döndürdü.`);
         return res.json();
       })
       .then((data) => {
-        // Gelen verinin dizi (array) olup olmadığını kontrol et
         if (Array.isArray(data)) {
           setParcels(data);
         } else {
@@ -95,25 +92,14 @@ function ZoomListener() {
       })
       .catch((err) => {
         console.error('Parseller yüklenirken hata oluştu:', err);
-        setParcels([]); // Haritanın çökmesini engellemek için boş diziye çek
-        setLoading(false); // Yüklenme ekranından çık
+        setParcels([]); 
+        setLoading(false); 
       });
   };
 
   useEffect(() => {
     fetchParcels(true); 
   }, []);
-
-  // YENİ EKLENEN: Koordinat indirme fonksiyonu
-  const downloadCoordinates = (geometry: any, name: string) => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geometry, null, 2));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `${name ? name.replace(/\//g, '-') : "parsel"}_koordinatlar.geojson`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
 
   const handleCreated = async (e: any) => {
     const { layerType, layer } = e;
@@ -137,7 +123,7 @@ function ZoomListener() {
         });
 
         if (!response.ok) throw new Error('Veritabanına kayıt başarısız.');
-        fetchParcels(false); // Yeni çizileni sisteme yükle
+        fetchParcels(false); 
       } catch (err) {
         console.error("Manuel çizim kaydı hatası:", err);
       }
@@ -202,7 +188,6 @@ function ZoomListener() {
             parcelName = props.PARSEL_NO ? `Parsel: ${props.PARSEL_NO}` : `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
           }
 
-          // Yüklenen dosyanın sınırlarını (Bounds) bulmak için
           if (feature.geometry.type === 'Polygon') {
             feature.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
               if(lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
@@ -215,7 +200,6 @@ function ZoomListener() {
              });
           }
 
-          // Backend API'ye kaydet
           const response = await fetch('/api/parcels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -282,44 +266,77 @@ function ZoomListener() {
 
   return (
     <div className="w-full h-full flex flex-col relative z-0">
-      {/* AutoCAD Stili Koyu Toolbar (Araç Çubuğu) */}
-      <div className="bg-[#2d2d2d] border-b border-[#444] p-1.5 flex items-center gap-2 z-[400] relative shadow-sm">
-        <input 
-          type="file" 
-          ref={fileInputRef}
-          accept=".geojson,.json" 
-          onChange={handleFileUpload} 
-          className="hidden" 
-        />
+      
+      {/* ------------------------------------------------------------------ */}
+      {/* YENİ: UYGULAMANIN TEK VE ANA ÜST BARI (HEADER + TOOLBAR BİRLEŞİMİ) */}
+      {/* ------------------------------------------------------------------ */}
+      <header className="bg-[#252526] border-b border-[#333] px-4 py-2 flex items-center justify-between shadow-md z-[400] relative select-none">
         
-        {/* Veri Yükle Butonu */}
-        <button 
-          onClick={() => fileInputRef.current?.click()}
-          disabled={uploading}
-          title="Sisteme GeoJSON / JSON formatında parsel yükle"
-          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
-            uploading 
-              ? 'bg-[#444] text-gray-500 border-[#555] cursor-not-allowed' 
-              : 'bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 border-[#555] cursor-pointer'
-          }`}
-        >
-          <Upload size={16} />
-          {uploading ? 'İşleniyor...' : 'Veri Yükle (.json)'}
-        </button>
+        {/* SOL: Logo ve Uygulama Adı */}
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-1 rounded-md shadow-sm h-9 w-9 flex items-center justify-center">
+            <img 
+              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
+              alt="OSB Logo" 
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+          <div className="hidden sm:block">
+            <h1 className="text-sm font-bold tracking-wide text-gray-100 leading-tight">OSB PARSEL BİLGİ SİSTEMİ</h1>
+            <p className="text-[9px] text-gray-400 uppercase tracking-wider">CAD Viewport v1.0</p>
+          </div>
+        </div>
 
-        {/* Ayraç */}
-        <div className="w-px h-5 bg-[#555] mx-1"></div>
+        {/* ORTA: Yükleme ve Odaklanma Araçları */}
+        <div className="flex items-center gap-2">
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            accept=".geojson,.json" 
+            onChange={handleFileUpload} 
+            className="hidden" 
+          />
+          
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            title="Sisteme GeoJSON / JSON formatında parsel yükle"
+            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors ${
+              uploading 
+                ? 'bg-[#444] text-gray-500 border-[#555] cursor-not-allowed' 
+                : 'bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 border-[#555] cursor-pointer'
+            }`}
+          >
+            <Upload size={14} />
+            {uploading ? 'İşleniyor...' : 'Veri Yükle (.json)'}
+          </button>
 
-        {/* Tüm Parsellere Odaklan Butonu */}
-        <button 
-          onClick={handleFitBounds}
-          title="Tüm parselleri ekrana sığdıracak şekilde kamerayı ayarla"
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-medium rounded border border-[#555] transition-colors cursor-pointer"
-        >
-          <Focus size={16} />
-          Parsellere Odaklan
-        </button>
-      </div>
+          <div className="w-px h-5 bg-[#555] mx-1"></div>
+
+          <button 
+            onClick={handleFitBounds}
+            title="Tüm parselleri ekrana sığdıracak şekilde kamerayı ayarla"
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-bold rounded border border-[#555] transition-colors cursor-pointer"
+          >
+            <Focus size={14} />
+            Parsellere Odaklan
+          </button>
+        </div>
+
+        {/* SAĞ: Koordinat Bilgisi ve Yönetim Paneli */}
+        <div className="flex items-center gap-4">
+          <div className="text-[10px] text-gray-500 font-mono hidden md:block">
+            Koordinat Sistemi: EPSG:4326 (WGS84)
+          </div>
+          <button 
+            onClick={onOpenAdmin}
+            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow-md transition-colors cursor-pointer"
+          >
+            <Database size={14} /> Tüm Sistemi Yönet
+          </button>
+        </div>
+
+      </header>
 
       {/* Harita / Çizim Alanı */}
       <div className="flex-1 w-full h-full bg-[#1e1e1e]">
@@ -327,10 +344,14 @@ function ZoomListener() {
           center={defaultCenter}
           zoom={6} 
           ref={mapRef}
+          zoomControl={false} // YENİ: Varsayılan sol-üst zoom kontrolünü kaldırdık.
           style={{ height: '100%', width: '100%', background: '#242424' }}
         >
-          {/* Katmanlar Kapatılmadı, Aynen Korundu */}
-          <LayersControl position="topleft">
+          {/* YENİ: Zoom kontrolünü sağ-alt köşeye koyduk */}
+          <ZoomControl position="bottomright" />
+
+          {/* KATMANLAR: Eski dosyadaki 4 katman eksiksiz korundu ve Sağ-Üste alındı */}
+          <LayersControl position="topright">
             <LayersControl.BaseLayer checked name="Google Yol Haritası">
               <TileLayer
                 url="https://mt1.google.com/vt/lyrs=m&hl=tr&x={x}&y={y}&z={z}"
@@ -358,7 +379,7 @@ function ZoomListener() {
           </LayersControl>
 
           <MapBoundsController bounds={mapBounds} />
-          <ZoomListener /> {/* YENİ EKLENEN */}
+          <ZoomListener setCurrentZoom={setCurrentZoom} />
 
           {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM */}
           {parcels.map((parcel) => {
@@ -372,8 +393,8 @@ function ZoomListener() {
 
             const rawAdaParsel = parcel.ada_parsel || '';
             const labelText = rawAdaParsel.replace(/\//g, '-') || parcel.name || '';
-            
-            // YENİ EKLENEN KISIM: Bu parsel şu an seçili mi?
+
+            // Seçili Parsel Vurgusu
             const isSelected = selectedParcelId === parcel.id;
 
             return (
@@ -381,8 +402,7 @@ function ZoomListener() {
                 key={`parcel-${parcel.id}-${isSelected}`} 
                 data={geoJsonFeature}
                 style={{
-                  // Seçiliyse SARI, seçili değilse YEŞİL tonları
-                  color: isSelected ? '#facc15' : '#4ade80',
+                  color: isSelected ? '#facc15' : '#4ade80', // Seçiliyse Sarı, değilse Yeşil
                   fillColor: isSelected ? '#fef08a' : '#22c55e',
                   fillOpacity: isSelected ? 0.4 : 0.25,
                   weight: isSelected ? 3 : 2
@@ -390,14 +410,11 @@ function ZoomListener() {
                 eventHandlers={{
                   click: (e) => {
                     const layer = e.target;
-                    // Tıklandığında kamerayı o parsele hafifçe yaklaştır/odakla
+                    // Tıklanan parsele hafifçe zoom yap
                     if (mapRef.current && layer.getBounds) {
                       mapRef.current.fitBounds(layer.getBounds(), { padding: [150, 150], maxZoom: 18 });
                     }
-                    // Tıklanan parselin verisini üst bileşene (App.tsx) gönder
-                    if (onSelectParcel) {
-                      onSelectParcel(parcel);
-                    }
+                    if (onSelectParcel) onSelectParcel(parcel); // Seçili parseli App'e gönder (Sidebar için)
                   }
                 }}
               >
@@ -407,17 +424,14 @@ function ZoomListener() {
                     {labelText}
                   </Tooltip>
                 )}
-                
-                {/* DİKKAT: <Popup> etiketi ve içindeki her şey buradan silindi! */}
               </GeoJSON>
             );
           })}
-        
 
           <FeatureGroup>
             {/* @ts-ignore: react-leaflet-draw tip tanımlamaları React 18+ ile uyumsuz olduğu için yoksayılıyor */}
             <EditControl
-              position="topright"
+              position="topright" // Çizim Araçları da Katmanların altında Sağ Üstte
               onCreated={handleCreated}
               draw={{
                 rectangle: false,
