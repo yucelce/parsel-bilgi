@@ -33,3 +33,5 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
    vercel ile geliştiriyoruz.
 
    program ai lar ile geliştirileceği için mümkün mertebe ayrık sayfalarla çalışılması iyi olur
+
+   Tasarım olarak Autocad örnek alınsın.
