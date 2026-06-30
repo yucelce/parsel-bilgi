@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
-import { Upload, Focus } from 'lucide-react';
+import { Upload, Focus, Download } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -29,57 +29,68 @@ export default function ParcelMap() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<L.Map>(null); // Haritaya dışarıdan müdahale için referans
 
- const fetchParcels = (isInitialLoad = false) => {
-  fetch('/api/parcels')
-    .then(async (res) => {
-      if (!res.ok) {
-        throw new Error(`API Hatası: Sunucu ${res.status} döndürdü.`);
-      }
-      return res.json();
-    })
-    .then((data) => {
-      // Gelen verinin dizi (array) olup olmadığını kontrol et
-      if (Array.isArray(data)) {
-        setParcels(data);
-      } else {
-        setParcels([]);
-      }
-      setLoading(false);
-
-      if (isInitialLoad && Array.isArray(data) && data.length > 0) {
-        const latLngs: L.LatLng[] = [];
-        data.forEach((parcel: any) => {
-          if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
-            try {
-              const coords = parcel.geometry.type === 'Polygon' 
-                ? parcel.geometry.coordinates[0] 
-                : parcel.geometry.coordinates[0][0]; 
-                
-              if (Array.isArray(coords)) {
-                coords.forEach(([lng, lat]: [number, number]) => {
-                  if (lat && lng) latLngs.push(L.latLng(lat, lng));
-                });
-              }
-            } catch (e) {
-              console.warn("Sınır hesaplama hatası atlandı.", e);
-            }
-          }
-        });
-        if (latLngs.length > 0) {
-          setMapBounds(L.latLngBounds(latLngs));
+  const fetchParcels = (isInitialLoad = false) => {
+    fetch('/api/parcels')
+      .then(async (res) => {
+        if (!res.ok) {
+          throw new Error(`API Hatası: Sunucu ${res.status} döndürdü.`);
         }
-      }
-    })
-    .catch((err) => {
-      console.error('Parseller yüklenirken hata oluştu:', err);
-      setParcels([]); // Haritanın çökmesini engellemek için boş diziye çek
-      setLoading(false); // Yüklenme ekranından çık
-    });
-};
+        return res.json();
+      })
+      .then((data) => {
+        // Gelen verinin dizi (array) olup olmadığını kontrol et
+        if (Array.isArray(data)) {
+          setParcels(data);
+        } else {
+          setParcels([]);
+        }
+        setLoading(false);
+
+        if (isInitialLoad && Array.isArray(data) && data.length > 0) {
+          const latLngs: L.LatLng[] = [];
+          data.forEach((parcel: any) => {
+            if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
+              try {
+                const coords = parcel.geometry.type === 'Polygon' 
+                  ? parcel.geometry.coordinates[0] 
+                  : parcel.geometry.coordinates[0][0]; 
+                  
+                if (Array.isArray(coords)) {
+                  coords.forEach(([lng, lat]: [number, number]) => {
+                    if (lat && lng) latLngs.push(L.latLng(lat, lng));
+                  });
+                }
+              } catch (e) {
+                console.warn("Sınır hesaplama hatası atlandı.", e);
+              }
+            }
+          });
+          if (latLngs.length > 0) {
+            setMapBounds(L.latLngBounds(latLngs));
+          }
+        }
+      })
+      .catch((err) => {
+        console.error('Parseller yüklenirken hata oluştu:', err);
+        setParcels([]); // Haritanın çökmesini engellemek için boş diziye çek
+        setLoading(false); // Yüklenme ekranından çık
+      });
+  };
 
   useEffect(() => {
     fetchParcels(true); 
   }, []);
+
+  // YENİ EKLENEN: Koordinat indirme fonksiyonu
+  const downloadCoordinates = (geometry: any, name: string) => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geometry, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", `${name ? name.replace(/\//g, '-') : "parsel"}_koordinatlar.geojson`);
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  };
 
   const handleCreated = async (e: any) => {
     const { layerType, layer } = e;
@@ -87,7 +98,6 @@ export default function ParcelMap() {
       const geojsonData = layer.toGeoJSON();
       console.log('Yeni Çizilen Parsel Geometrisi:', geojsonData.geometry);
       
-      // İlk analizde önerilen manuel çizimi veritabanına kaydetme kodu eklendi
       try {
         const response = await fetch('/api/parcels', {
           method: 'POST',
@@ -98,7 +108,8 @@ export default function ParcelMap() {
             ownerName: null,
             ownerPhone: null,
             ownerEmail: null,
-            status: 'Aktif'
+            status: 'Aktif',
+            zoningStatus: 'Sanayi Tesis Alanı'
           })
         });
 
@@ -156,9 +167,14 @@ export default function ParcelMap() {
 
           const props = feature.properties || {};
           
+          let adaParsel = props.ada_parsel || null;
+          if (!adaParsel && props.Ada && props.ParselNo) {
+            adaParsel = `${props.Ada}/${props.ParselNo}`;
+          }
+
           let parcelName = props.name;
-          if (!parcelName && props.Ilce && props.Mahalle && props.Ada && props.ParselNo) {
-            parcelName = `${props.Ilce}/${props.Mahalle} - Ada: ${props.Ada}, Parsel: ${props.ParselNo}`;
+          if (!parcelName && adaParsel) {
+            parcelName = `Ada/Parsel: ${adaParsel}`;
           } else if (!parcelName) {
             parcelName = props.PARSEL_NO ? `Parsel: ${props.PARSEL_NO}` : `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
           }
@@ -186,7 +202,11 @@ export default function ParcelMap() {
               ownerName: props.Nitelik || props.owner_name || null,
               ownerPhone: null,
               ownerEmail: null,
-              status: 'Aktif'
+              status: 'Aktif',
+              adaParsel: adaParsel,
+              areaM2: props.area_m2 || 0,
+              zoningStatus: props.zoning_status || 'Sanayi Tesis Alanı',
+              hasWorkLicense: props.has_work_license || false
             })
           });
 
@@ -221,7 +241,6 @@ export default function ParcelMap() {
     reader.readAsText(file);
   };
 
-  // Yeni Zoom (Odaklanma) Butonunun Fonksiyonu
   const handleFitBounds = () => {
     if (mapRef.current && mapBounds && mapBounds.isValid()) {
       mapRef.current.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 18 });
@@ -239,7 +258,7 @@ export default function ParcelMap() {
   }
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col relative z-0">
       {/* AutoCAD Stili Koyu Toolbar (Araç Çubuğu) */}
       <div className="bg-[#2d2d2d] border-b border-[#444] p-1.5 flex items-center gap-2 z-[400] relative shadow-sm">
         <input 
@@ -258,7 +277,7 @@ export default function ParcelMap() {
           className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
             uploading 
               ? 'bg-[#444] text-gray-500 border-[#555] cursor-not-allowed' 
-              : 'bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 border-[#555]'
+              : 'bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 border-[#555] cursor-pointer'
           }`}
         >
           <Upload size={16} />
@@ -272,7 +291,7 @@ export default function ParcelMap() {
         <button 
           onClick={handleFitBounds}
           title="Tüm parselleri ekrana sığdıracak şekilde kamerayı ayarla"
-          className="flex items-center gap-2 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-medium rounded border border-[#555] transition-colors"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-medium rounded border border-[#555] transition-colors cursor-pointer"
         >
           <Focus size={16} />
           Parsellere Odaklan
@@ -280,7 +299,7 @@ export default function ParcelMap() {
       </div>
 
       {/* Harita / Çizim Alanı */}
-      <div className="flex-1 w-full relative bg-[#1e1e1e]">
+      <div className="flex-1 w-full h-full bg-[#1e1e1e]">
         <MapContainer 
           center={defaultCenter}
           zoom={6} 
@@ -317,7 +336,7 @@ export default function ParcelMap() {
 
           <MapBoundsController bounds={mapBounds} />
 
-          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM AYNEN KORUNDU */}
+          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM - YENİ ÖZELLİKLERLE BİRLİKTE */}
           {parcels.map((parcel) => {
             if (!parcel.geometry) return null;
             
@@ -338,19 +357,39 @@ export default function ParcelMap() {
                   weight: 2
                 }}
               >
-                <Popup minWidth={260}>
-                  <div className="font-sans text-sm p-1">
+                <Popup minWidth={300}>
+                  <div className="font-sans text-sm p-1 text-gray-800">
                     <div className="border-b pb-2 mb-2">
-                      <h3 className="font-bold text-base text-gray-900 m-0 mb-1">{parcel.name || 'İsimsiz Parsel'}</h3>
-                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
-                        Durum: {parcel.status || 'Aktif'}
-                      </span>
+                      <h3 className="font-bold text-base text-gray-900 m-0 mb-0.5">{parcel.ada_parsel || parcel.name || 'İsimsiz Parsel'}</h3>
+                      {parcel.ada_parsel && <p className="text-xs text-gray-500 mt-0 mb-2">{parcel.name}</p>}
+                      <div className="flex gap-2 flex-wrap">
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
+                          Durum: {parcel.status || 'Aktif'}
+                        </span>
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${parcel.has_work_license ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
+                          Ruhsat: {parcel.has_work_license ? 'Var' : 'Yok'}
+                        </span>
+                      </div>
                     </div>
                     <div className="space-y-1.5 text-gray-700">
-                      <p className="m-0"><strong>Nitelik/Sahip:</strong> {parcel.owner_name || 'Belirtilmemiş'}</p>
+                      <p className="m-0"><strong>Nitelik/Sahip (Malik):</strong> {parcel.owner_name || 'Belirtilmemiş'}</p>
+                      <p className="m-0"><strong>Kiracı Firma:</strong> {parcel.tenant_name || 'Yok'}</p>
                       <p className="m-0"><strong>Telefon:</strong> {parcel.owner_phone || 'Belirtilmemiş'}</p>
                       <p className="m-0"><strong>E-posta:</strong> {parcel.owner_email || 'Belirtilmemiş'}</p>
+                      
+                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t">
+                        <p className="m-0"><strong>Alan:</strong> {parcel.area_m2 ? `${parcel.area_m2} m²` : 'Girilmemiş'}</p>
+                        <p className="m-0"><strong>İmar:</strong> {parcel.zoning_status || 'Sanayi'}</p>
+                      </div>
+                      <p className="m-0 text-xs text-gray-500 mt-1 pt-1 border-t"><strong>Altyapı:</strong> {parcel.infrastructure_info || 'Tespit Edilmedi'}</p>
                     </div>
+
+                    <button 
+                      onClick={() => downloadCoordinates(parcel.geometry, parcel.ada_parsel || parcel.name || "parsel")}
+                      className="mt-3 w-full flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      <Download size={14} /> Koordinatları İndir (GeoJSON)
+                    </button>
                   </div>
                 </Popup>
               </GeoJSON>
