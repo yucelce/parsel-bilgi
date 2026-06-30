@@ -2,23 +2,27 @@
 import React, { useState } from 'react';
 import ParcelMap from './components/ParcelMap';
 import ManagementPanel from './components/ManagementPanel';
+import ParcelSidebar from './components/ParcelSidebar'; // YENİ: Sidebar'ı içe aktardık
 import { Database } from 'lucide-react';
 
 function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
-  // Hangi parselin düzenleme moduyla açılacağını tutan state
   const [initialEditId, setInitialEditId] = useState<string | null>(null);
+  
+  // YENİ: Haritada tıklanan parselin tüm verisini tutacak State
+  const [selectedParcelData, setSelectedParcelData] = useState<any | null>(null);
 
-  // Haritadaki düzenle butonuna basıldığında tetiklenecek fonksiyon
+  // Sidebar'dan (veya başka yerden) "Detayları Yönet" butonuna basıldığında
   const handleEditParcel = (id: string) => {
     setInitialEditId(id);
     setShowAdminPanel(true);
   };
 
-  // Yönetim paneli kapatıldığında durumları sıfırlayan fonksiyon
   const handleCloseAdmin = () => {
     setShowAdminPanel(false);
     setInitialEditId(null);
+    // Panel kapanınca yan paneldeki seçimi de temizlemek isterseniz:
+    // setSelectedParcelData(null); 
   };
 
   return (
@@ -44,7 +48,7 @@ function App() {
           </div>
           <button 
             onClick={() => setShowAdminPanel(true)}
-            className="flex items-center gap-2 bg-[#333] hover:bg-[#444] text-white px-3 py-1.5 rounded text-xs font-semibold border border-[#555] transition-colors"
+            className="flex items-center gap-2 bg-[#333] hover:bg-[#444] text-white px-3 py-1.5 rounded text-xs font-semibold border border-[#555] transition-colors cursor-pointer"
           >
             <Database size={14} /> Yönetim Paneli
           </button>
@@ -52,10 +56,24 @@ function App() {
       </header>
       
       <main className="flex-1 relative w-full h-full">
-        {/* Fonksiyonu haritaya prop olarak geçiyoruz */}
-        <ParcelMap onEditParcel={handleEditParcel} />
+        
+        {/* YENİ: Haritaya artık seçili ID'yi ve tıklama fonksiyonunu gönderiyoruz */}
+        <ParcelMap 
+          onEditParcel={handleEditParcel} 
+          onSelectParcel={setSelectedParcelData} 
+          selectedParcelId={selectedParcelData?.id || null} 
+        />
+        
+        {/* YENİ: Seçili bir parsel varsa Sol Panel açılır */}
+        {selectedParcelData && (
+          <ParcelSidebar 
+            parcel={selectedParcelData} 
+            onClose={() => setSelectedParcelData(null)} 
+            onManage={() => handleEditParcel(selectedParcelData.id)}
+          />
+        )}
+
         {showAdminPanel && (
-          // Kapatma fonksiyonunu ve hedef ID'yi panele geçiyoruz
           <ManagementPanel onClose={handleCloseAdmin} initialEditId={initialEditId} />
         )}
       </main>

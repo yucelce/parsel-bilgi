@@ -22,9 +22,11 @@ function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
 
 interface ParcelMapProps {
   onEditParcel?: (id: string) => void;
+  onSelectParcel?: (parcel: any) => void; // YENİ: Tıklanan parseli App.tsx'e gönderecek
+  selectedParcelId?: string | null;       // YENİ: Seçili parselin sarı renk olmasını sağlayacak
 }
 
-export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
+export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId }: ParcelMapProps) {
   // ParcelMap bileşeni içine eklenecek yeni state
 const [currentZoom, setCurrentZoom] = useState<number>(6); // Varsayılan zoom seviyesi
 
@@ -358,7 +360,7 @@ function ZoomListener() {
           <MapBoundsController bounds={mapBounds} />
           <ZoomListener /> {/* YENİ EKLENEN */}
 
-          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM - YENİ ÖZELLİKLERLE BİRLİKTE */}
+          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM */}
           {parcels.map((parcel) => {
             if (!parcel.geometry) return null;
             
@@ -368,19 +370,35 @@ function ZoomListener() {
               geometry: parcel.geometry
             };
 
-            // YENİ EKLENEN KISIM: Ada ve Parsel bilgisini al, '/' işaretini '-' yap.
             const rawAdaParsel = parcel.ada_parsel || '';
             const labelText = rawAdaParsel.replace(/\//g, '-') || parcel.name || '';
+            
+            // YENİ EKLENEN KISIM: Bu parsel şu an seçili mi?
+            const isSelected = selectedParcelId === parcel.id;
 
             return (
               <GeoJSON
-                key={`parcel-${parcel.id}-${parcel.geometry.coordinates?.length || 0}`} 
+                key={`parcel-${parcel.id}-${isSelected}`} 
                 data={geoJsonFeature}
                 style={{
-                  color: '#4ade80', // Koyu temaya uygun fosforlu/neon yeşil
-                  fillColor: '#22c55e',
-                  fillOpacity: 0.25,
-                  weight: 2
+                  // Seçiliyse SARI, seçili değilse YEŞİL tonları
+                  color: isSelected ? '#facc15' : '#4ade80',
+                  fillColor: isSelected ? '#fef08a' : '#22c55e',
+                  fillOpacity: isSelected ? 0.4 : 0.25,
+                  weight: isSelected ? 3 : 2
+                }}
+                eventHandlers={{
+                  click: (e) => {
+                    const layer = e.target;
+                    // Tıklandığında kamerayı o parsele hafifçe yaklaştır/odakla
+                    if (mapRef.current && layer.getBounds) {
+                      mapRef.current.fitBounds(layer.getBounds(), { padding: [150, 150], maxZoom: 18 });
+                    }
+                    // Tıklanan parselin verisini üst bileşene (App.tsx) gönder
+                    if (onSelectParcel) {
+                      onSelectParcel(parcel);
+                    }
+                  }
                 }}
               >
                 {/* HARİTA ÜZERİNDE ORTADA GÖRÜNECEK KALICI ETİKET */}
@@ -389,49 +407,11 @@ function ZoomListener() {
                     {labelText}
                   </Tooltip>
                 )}
-
-                <Popup minWidth={250}>
-                  <div className="font-sans text-sm p-1 text-gray-800">
-                    <div className="border-b pb-2 mb-2">
-                      <h3 className="font-bold text-base text-gray-900 m-0 mb-0.5">{parcel.ada_parsel || parcel.name || 'İsimsiz Parsel'}</h3>
-                      <div className="flex gap-2 flex-wrap mt-1">
-                        <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
-                          Durum: {parcel.status || 'Aktif'}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="bg-gray-50 p-2 rounded border border-gray-200 mb-3">
-                      <p className="m-0 text-xs text-gray-600 font-semibold mb-1">PARSEL ÖZETİ:</p>
-                      <p className="m-0 text-sm">🏢 Toplam Yapı/Bina: <strong>{parcel.structures?.length || 0}</strong></p>
-                      <p className="m-0 text-sm">🚪 Bağımsız Bölüm: <strong>
-                        {parcel.structures?.reduce((total: number, s: any) => total + (s.units?.length || 0), 0) || 0}
-                      </strong></p>
-                      <p className="m-0 text-sm">👥 Toplam İşletme: <strong>
-                        {parcel.structures?.reduce((total: number, s: any) => {
-                            return total + (s.units?.reduce((uTotal: number, u: any) => uTotal + (u.occupants?.length || 0), 0) || 0);
-                        }, 0) || 0}
-                      </strong></p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2 mt-3">
-                      <button 
-                        onClick={() => downloadCoordinates(parcel.geometry, parcel.ada_parsel || parcel.name || "parsel")}
-                        className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
-                      >
-                        <Download size={14} /> Koordinat
-                      </button>
-                      <button 
-                        onClick={() => onEditParcel && onEditParcel(parcel.id)}
-                        className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer shadow-sm"
-                      >
-                        <Edit2 size={14} /> Detayları Yönet
-                      </button>
-                    </div>
-                  </div>
-                </Popup>
+                
+                {/* DİKKAT: <Popup> etiketi ve içindeki her şey buradan silindi! */}
               </GeoJSON>
             );
+          })}
           })}
 
           <FeatureGroup>
