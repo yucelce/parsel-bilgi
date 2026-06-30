@@ -83,13 +83,13 @@ app.post('/api/parcels', async (req, res) => {
     const id = randomUUID();
     const geojsonStr = JSON.stringify(geometry);
     
-    // SRID 4326 format desteği sağlandı
+    // DÜZELTME: ${geojsonStr} parametresinin sonuna ::json eklenerek türü açıkça belirtildi.
     await db.execute(sql`
       INSERT INTO parcels (id, name, geometry, owner_name, owner_phone, owner_email, status)
       VALUES (
         ${id}, 
         ${name}, 
-        ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}), 4326), 
+        ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}::json), 4326), 
         ${ownerName || null}, 
         ${ownerPhone || null}, 
         ${ownerEmail || null}, 
