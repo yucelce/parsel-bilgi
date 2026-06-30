@@ -1,9 +1,9 @@
+// server.ts
 import 'dotenv/config';
 import express from 'express';
 import path from 'path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-// İPTAL EDİLDİ: import { parcels } from './src/db/schema'; -> Bu dosya yükledikleriniz arasında yok, build hatası verir.
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -12,24 +12,19 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Vercel Postgres (Neon) bağlantısı
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
 
 if (!connectionString) {
   console.error("KRİTİK HATA: POSTGRES_URL bulunamadı. Lütfen .env dosyanızı kontrol edin.");
 }
 
-// DİKKAT: Vercel/Neon veritabanları SSL bağlantısını zorunlu kılar.
 const queryClient = postgres(connectionString, { ssl: 'require' });
 const db = drizzle(queryClient);
 
-// AKILLI KURULUM: Tabloları ve PostGIS uzantısını otomatik oluşturur
 async function initDatabase() {
   try {
-    // 1. Coğrafi bilgi sistemi uzantısını aktif et
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis;`);
     
-    // 2. Parsels tablosu yoksa otomatik oluştur
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS parcels (
         id UUID PRIMARY KEY,
@@ -39,9 +34,16 @@ async function initDatabase() {
         owner_phone TEXT,
         owner_email TEXT,
         status TEXT DEFAULT 'Aktif',
-        date TIMESTAMP DEFAULT NOW()
+        date TIMESTAMP DEFAULT NOW(),
+        ada_parsel TEXT,
+        has_work_license BOOLEAN DEFAULT false
       );
     `);
+    
+    // Mevcut tabloya yeni sütunları güvenli şekilde ekler (Eğer önceden varsa hata vermez)
+    await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS ada_parsel TEXT;`);
+    await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS has_work_license BOOLEAN DEFAULT false;`);
+    
     console.log("PostgreSQL ve Tablo yapısı başarıyla hazırlandı.");
   } catch (err: any) {
     console.error("Veritabanı otomatik kurulum hatası:", err.message);
@@ -49,7 +51,6 @@ async function initDatabase() {
 }
 initDatabase();
 
-// API Rotaları
 app.get('/api/parcels', async (req, res) => {
   try {
     const result = await db.execute(sql`
@@ -61,7 +62,9 @@ app.get('/api/parcels', async (req, res) => {
         owner_phone, 
         owner_email, 
         status, 
-        date 
+        date,
+        ada_parsel,
+        has_work_license
       FROM parcels
     `);
     
@@ -72,20 +75,18 @@ app.get('/api/parcels', async (req, res) => {
     
     res.json(formattedResult);
   } catch (err: any) {
-    console.error('Error fetching parcels:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.post('/api/parcels', async (req, res) => {
   try {
-    const { name, geometry, ownerName, ownerPhone, ownerEmail, status } = req.body;
+    const { name, geometry, ownerName, ownerPhone, ownerEmail, status, adaParsel, hasWorkLicense } = req.body;
     const id = randomUUID();
     const geojsonStr = JSON.stringify(geometry);
     
-    // DÜZELTME: ${geojsonStr} parametresinin sonuna ::json eklenerek türü açıkça belirtildi.
     await db.execute(sql`
-      INSERT INTO parcels (id, name, geometry, owner_name, owner_phone, owner_email, status)
+      INSERT INTO parcels (id, name, geometry, owner_name, owner_phone, owner_email, status, ada_parsel, has_work_license)
       VALUES (
         ${id}, 
         ${name}, 
@@ -93,13 +94,14 @@ app.post('/api/parcels', async (req, res) => {
         ${ownerName || null}, 
         ${ownerPhone || null}, 
         ${ownerEmail || null}, 
-        ${status || 'Aktif'}
+        ${status || 'Aktif'},
+        ${adaParsel || null},
+        ${hasWorkLicense || false}
       )
     `);
     
     res.status(201).json({ id });
   } catch (err: any) {
-    console.error('Error creating parcel:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -107,22 +109,27 @@ app.post('/api/parcels', async (req, res) => {
 app.patch('/api/parcels/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { ownerName, ownerPhone, ownerEmail, status } = req.body;
+    const { ownerName, ownerPhone, ownerEmail, status, name, adaParsel, hasWorkLicense } = req.body;
     
     await db.execute(sql`
       UPDATE parcels
-      SET owner_name = ${ownerName}, owner_phone = ${ownerPhone}, owner_email = ${ownerEmail}, status = ${status}
+      SET 
+        owner_name = ${ownerName}, 
+        owner_phone = ${ownerPhone}, 
+        owner_email = ${ownerEmail}, 
+        status = ${status},
+        name = ${name},
+        ada_parsel = ${adaParsel},
+        has_work_license = ${hasWorkLicense}
       WHERE id = ${id}
     `);
     
     res.json({ success: true });
   } catch (err: any) {
-    console.error('Error updating parcel:', err);
     res.status(500).json({ error: err.message });
   }
 });
 
-// Statik Dosya Sunumu (Production/Development ayarı)
 if (process.env.NODE_ENV !== "production") {
   import('vite').then(async ({ createServer: createViteServer }) => {
     const vite = await createViteServer({
