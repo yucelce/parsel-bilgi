@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
+import { Upload, Focus } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -26,6 +27,7 @@ export default function ParcelMap() {
   const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
   const [uploading, setUploading] = useState<boolean>(false); 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const mapRef = useRef<L.Map>(null); // Haritaya dışarıdan müdahale için referans
 
   const fetchParcels = (isInitialLoad = false) => {
     fetch('/api/parcels')
@@ -40,8 +42,6 @@ export default function ParcelMap() {
             // Sadece Polygon veya MultiPolygon ise sınırları hesapla
             if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
               try {
-                // Leaflet'in GeoJSON katmanı sınırları otomatik hesaplayabilir, ancak 
-                // manuel bounds kontrolü için basit bir tarama yapıyoruz
                 const coords = parcel.geometry.type === 'Polygon' 
                   ? parcel.geometry.coordinates[0] 
                   : parcel.geometry.coordinates[0][0]; // MultiPolygon için ilk poligonun ilk halkası
@@ -71,11 +71,32 @@ export default function ParcelMap() {
     fetchParcels(true); 
   }, []);
 
-  const handleCreated = (e: any) => {
+  const handleCreated = async (e: any) => {
     const { layerType, layer } = e;
     if (layerType === 'polygon') {
       const geojsonData = layer.toGeoJSON();
       console.log('Yeni Çizilen Parsel Geometrisi:', geojsonData.geometry);
+      
+      // İlk analizde önerilen manuel çizimi veritabanına kaydetme kodu eklendi
+      try {
+        const response = await fetch('/api/parcels', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: `Manuel Çizim (${new Date().toLocaleDateString()})`,
+            geometry: geojsonData.geometry,
+            ownerName: null,
+            ownerPhone: null,
+            ownerEmail: null,
+            status: 'Aktif'
+          })
+        });
+
+        if (!response.ok) throw new Error('Veritabanına kayıt başarısız.');
+        fetchParcels(false); // Yeni çizileni sisteme yükle
+      } catch (err) {
+        console.error("Manuel çizim kaydı hatası:", err);
+      }
     }
   };
 
@@ -159,7 +180,6 @@ export default function ParcelMap() {
             })
           });
 
-          // EĞER BACKEND KAYDEDEMEZSE SESSİZCE GEÇME, KULLANICIYA BİLDİR
           if (!response.ok) {
             const errData = await response.json().catch(() => ({}));
             throw new Error(`Veritabanı Kayıt Hatası: ${errData.error || response.statusText}`);
@@ -177,7 +197,7 @@ export default function ParcelMap() {
         }
 
         alert(`${successCount} adet parsel başarıyla işlendi ve haritaya eklendi.`);
-        fetchParcels(false); // Yeni çizgileri çizdirmek için listeyi güncelle
+        fetchParcels(false); 
         
       } catch (err: any) {
         console.error('GeoJSON İşleme Hatası:', err);
@@ -191,42 +211,73 @@ export default function ParcelMap() {
     reader.readAsText(file);
   };
 
+  // Yeni Zoom (Odaklanma) Butonunun Fonksiyonu
+  const handleFitBounds = () => {
+    if (mapRef.current && mapBounds && mapBounds.isValid()) {
+      mapRef.current.fitBounds(mapBounds, { padding: [50, 50], maxZoom: 18 });
+    } else {
+      alert("Haritada odaklanılacak geçerli bir sınır bulunamadı. Lütfen parsel yüklendiğinden emin olun.");
+    }
+  };
+
   if (loading) {
-    return <div className="p-4 text-center text-gray-600 font-medium">OSB Parsel Verileri Yükleniyor...</div>;
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 font-medium bg-[#1e1e1e]">
+        CAD Viewport Yükleniyor...
+      </div>
+    );
   }
 
   return (
-    <div className="w-full flex flex-col gap-2">
-      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-sm">
-        <span className="text-sm text-gray-600 font-medium">
-          TKGM'den indirdiğiniz veya ürettiğiniz <strong>.geojson / .json</strong> dosyalarını doğrudan sisteme yükleyebilirsiniz.
-        </span>
-        <div>
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            accept=".geojson,.json" 
-            onChange={handleFileUpload} 
-            className="hidden" 
-          />
-          <button 
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className={`px-4 py-2 rounded-md font-medium text-sm text-white transition-all shadow-sm ${
-              uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
-            }`}
-          >
-            {uploading ? 'Parseller İşleniyor...' : 'GeoJSON Dosyası Yükle'}
-          </button>
-        </div>
+    <div className="w-full h-full flex flex-col">
+      {/* AutoCAD Stili Koyu Toolbar (Araç Çubuğu) */}
+      <div className="bg-[#2d2d2d] border-b border-[#444] p-1.5 flex items-center gap-2 z-[400] relative shadow-sm">
+        <input 
+          type="file" 
+          ref={fileInputRef}
+          accept=".geojson,.json" 
+          onChange={handleFileUpload} 
+          className="hidden" 
+        />
+        
+        {/* Veri Yükle Butonu */}
+        <button 
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          title="Sisteme GeoJSON / JSON formatında parsel yükle"
+          className={`flex items-center gap-2 px-3 py-1.5 text-xs font-medium rounded border transition-colors ${
+            uploading 
+              ? 'bg-[#444] text-gray-500 border-[#555] cursor-not-allowed' 
+              : 'bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 border-[#555]'
+          }`}
+        >
+          <Upload size={16} />
+          {uploading ? 'İşleniyor...' : 'Veri Yükle (.json)'}
+        </button>
+
+        {/* Ayraç */}
+        <div className="w-px h-5 bg-[#555] mx-1"></div>
+
+        {/* Tüm Parsellere Odaklan Butonu */}
+        <button 
+          onClick={handleFitBounds}
+          title="Tüm parselleri ekrana sığdıracak şekilde kamerayı ayarla"
+          className="flex items-center gap-2 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-medium rounded border border-[#555] transition-colors"
+        >
+          <Focus size={16} />
+          Parsellere Odaklan
+        </button>
       </div>
 
-      <div style={{ height: '600px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+      {/* Harita / Çizim Alanı */}
+      <div className="flex-1 w-full relative bg-[#1e1e1e]">
         <MapContainer 
           center={defaultCenter}
           zoom={6} 
-          style={{ height: '100%', width: '100%' }}
+          ref={mapRef}
+          style={{ height: '100%', width: '100%', background: '#242424' }}
         >
+          {/* Katmanlar Kapatılmadı, Aynen Korundu */}
           <LayersControl position="topleft">
             <LayersControl.BaseLayer checked name="Google Yol Haritası">
               <TileLayer
@@ -256,11 +307,10 @@ export default function ParcelMap() {
 
           <MapBoundsController bounds={mapBounds} />
 
-          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM TAMAMEN DEĞİŞTİ - GeoJSON KULLANILIYOR */}
+          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM AYNEN KORUNDU */}
           {parcels.map((parcel) => {
             if (!parcel.geometry) return null;
             
-            // Veritabanından gelen raw datayı standart Feature nesnesine sarıyoruz
             const geoJsonFeature: any = {
               type: "Feature",
               properties: parcel,
@@ -269,21 +319,20 @@ export default function ParcelMap() {
 
             return (
               <GeoJSON
-                // Key önemli: GeoJSON bileşeni veriler değişince kendisini yenilemelidir.
                 key={`parcel-${parcel.id}-${parcel.geometry.coordinates?.length || 0}`} 
                 data={geoJsonFeature}
                 style={{
-                  color: '#1e3a8a',
-                  fillColor: '#3b82f6',
-                  fillOpacity: 0.35,
+                  color: '#4ade80', // Koyu temaya uygun fosforlu/neon yeşil
+                  fillColor: '#22c55e',
+                  fillOpacity: 0.25,
                   weight: 2
                 }}
               >
                 <Popup minWidth={260}>
                   <div className="font-sans text-sm p-1">
                     <div className="border-b pb-2 mb-2">
-                      <h3 className="font-bold text-base text-blue-950 m-0 mb-1">{parcel.name || 'İsimsiz Parsel'}</h3>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                      <h3 className="font-bold text-base text-gray-900 m-0 mb-1">{parcel.name || 'İsimsiz Parsel'}</h3>
+                      <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
                         Durum: {parcel.status || 'Aktif'}
                       </span>
                     </div>
