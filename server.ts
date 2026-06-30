@@ -38,6 +38,20 @@ async function initDatabase() {
         area_m2 NUMERIC DEFAULT 0
       );
     `);
+
+    // OSB İmar biriminin "İmar Durum Belgesi" verebilmesi için gerekli teknik parametreler
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS zoning_details (
+        id UUID PRIMARY KEY,
+        parcel_id UUID REFERENCES parcels(id) ON DELETE CASCADE,
+        taks NUMERIC DEFAULT 0,          -- Taban Alanı Katsayısı (Örn: 0.55)
+        kaks NUMERIC DEFAULT 0,          -- Emsal / Kat Alanı Katsayısı (Örn: 0.70)
+        hmax NUMERIC DEFAULT 0,          -- Maksimum Yükseklik (metre cinsinden, Örn: 15.50)
+        front_setback NUMERIC DEFAULT 0, -- Ön Bahçe Çekme Mesafesi
+        side_setback NUMERIC DEFAULT 0,  -- Yan Bahçe Çekme Mesafesi
+        rear_setback NUMERIC DEFAULT 0   -- Arka Bahçe Çekme Mesafesi
+      );
+    `);
     
     // 2. YAPILAR/BİNALAR TABLOSU
     await db.execute(sql`
@@ -90,6 +104,19 @@ async function initDatabase() {
         parcel_id UUID REFERENCES parcels(id) ON DELETE CASCADE,
         entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
         share_percentage NUMERIC DEFAULT 100
+      );
+    `);
+
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS licenses (
+        id UUID PRIMARY KEY,
+        reference_id UUID NOT NULL,               -- Parsel ID veya Bağımsız Bölüm ID gelebilir
+        reference_type TEXT NOT NULL,             -- 'parcel', 'structure' veya 'unit'
+        license_type TEXT NOT NULL,               -- 'İmar Durum Belgesi', 'Yapı Ruhsatı', 'İskan', 'GSM Ruhsatı'
+        application_date TIMESTAMP DEFAULT NOW(), -- Başvuru Tarihi
+        approval_date TIMESTAMP,                  -- Onay Tarihi
+        status TEXT DEFAULT 'Bekliyor',           -- 'Bekliyor', 'Eksik Evrak', 'Onaylandı', 'Reddedildi'
+        notes TEXT                                -- Eksik evrak notları veya uyarılar
       );
     `);
     
