@@ -73,6 +73,16 @@ async function initDatabase() {
         has_work_license BOOLEAN DEFAULT false
       );
     `);
+
+    // 5. PARSEL - PAYDAŞ İLİŞKİ TABLOSU (Arsa sahiplerini / Hissedarları tutmak için)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS parcel_entities (
+        id UUID PRIMARY KEY,
+        parcel_id UUID REFERENCES parcels(id) ON DELETE CASCADE,
+        entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
+        share_percentage NUMERIC DEFAULT 100
+      );
+    `);
     
     // Eskiden kalan sütunların hata vermemesi için güvenli eklemeler
     await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS ada_parsel TEXT;`);
@@ -86,38 +96,51 @@ initDatabase();
 
 // TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
 // TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
+// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
 app.get('/api/parcels', async (req, res) => {
   try {
     const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel FROM parcels`);
     const structuresRes = await db.execute(sql`SELECT * FROM structures`);
     const entitiesRes = await db.execute(sql`SELECT * FROM entities`);
     const structureEntitiesRes = await db.execute(sql`SELECT * FROM structure_entities`);
+    const parcelEntitiesRes = await db.execute(sql`SELECT * FROM parcel_entities`); // YENİ: Parsel Sahipleri
 
     const formattedResult = parcelsRes.map((p: any) => {
+      // 1. Bina ve Bina İçi Kiracı/Malikleri bul
       const pStructures = structuresRes
         .filter((s: any) => s.parcel_id === p.id)
         .map((s: any) => {
-          // Bu binaya ait ilişki kayıtlarını bul
           const sLinks = structureEntitiesRes.filter((se: any) => se.structure_id === s.id);
-          
-          // İlişki kayıtları ile firma/kişi detaylarını birleştir
           const sOccupants = sLinks.map((link: any) => {
             const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
             return {
+              ...entityData,
+              entity_id: entityData.id,
               id: link.id,
               role: link.role,
-              has_work_license: link.has_work_license,
-              ...entityData // Firma adı, telefonu, TC/VKN'si vb. buraya dahil olur
+              has_work_license: link.has_work_license
             };
           });
-
           return { ...s, occupants: sOccupants };
         });
+
+      // 2. Doğrudan Parselin Sahiplerini (Arsa Maliklerini) Bul
+      const pLinks = parcelEntitiesRes.filter((pe: any) => pe.parcel_id === p.id);
+      const pOwners = pLinks.map((link: any) => {
+        const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
+        return {
+          ...entityData,
+          entity_id: entityData.id,
+          id: link.id,
+          share_percentage: link.share_percentage
+        };
+      });
 
       return {
         ...p,
         geometry: JSON.parse(p.geometry),
-        structures: pStructures
+        structures: pStructures,
+        owners: pOwners // Arsa sahiplerini JSON'a ekledik
       };
     });
     
@@ -193,14 +216,14 @@ app.post('/api/entities', async (req, res) => {
   }
 });
 
-// BİNAYA PAYDAŞ BAĞLA (Var olan veya yeni eklenen kişiyi binaya atarken)
-app.post('/api/structure-entities', async (req, res) => {
+// PARSELE ARSA SAHİBİ (MALİK) BAĞLA
+app.post('/api/parcel-entities', async (req, res) => {
   try {
-    const { structure_id, entity_id, role, has_work_license } = req.body;
+    const { parcel_id, entity_id, share_percentage } = req.body;
     const id = randomUUID();
     await db.execute(sql`
-      INSERT INTO structure_entities (id, structure_id, entity_id, role, has_work_license) 
-      VALUES (${id}, ${structure_id}, ${entity_id}, ${role}, ${has_work_license})
+      INSERT INTO parcel_entities (id, parcel_id, entity_id, share_percentage) 
+      VALUES (${id}, ${parcel_id}, ${entity_id}, ${share_percentage || 100})
     `);
     res.status(201).json({ id });
   } catch (err: any) {

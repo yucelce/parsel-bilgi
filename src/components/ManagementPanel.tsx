@@ -10,7 +10,9 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
 
   // YENİ EKLENEN: Kişi/Firma Merkezi Yönetim State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [activeStructureId, setActiveStructureId] = useState<string | null>(null);
+// Atama Hedefi: 'structure' (Bina) veya 'parcel' (Arsa) olabilir
+  const [assignTarget, setAssignTarget] = useState<{type: 'parcel'|'structure', id: string} | null>(null);
+  const [sharePercentage, setSharePercentage] = useState<number>(100); // Parsel hissedarlığı için
   
   const [entitiesList, setEntitiesList] = useState<any[]>([]); // Veritabanındaki tüm kişi/firmalar
   const [modalMode, setModalMode] = useState<'select' | 'create'>('select'); // Form modu
@@ -36,9 +38,22 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
     fetch('/api/parcels')
       .then(res => res.json())
       .then(data => {
-        setParcels(data);
-        if (selectedParcel) {
-          setSelectedParcel(data.find((p: any) => p.id === selectedParcel.id));
+        if (Array.isArray(data)) {
+          setParcels(data);
+          if (selectedParcel) {
+            setSelectedParcel(data.find((p: any) => p.id === selectedParcel.id) || null);
+          }
+        }
+      })
+      .catch(err => console.error(err));
+  };
+
+  const fetchEntities = () => {
+    fetch('/api/entities')
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setEntitiesList(data);
         }
       })
       .catch(err => console.error(err));
@@ -86,12 +101,7 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
     fetchParcels();
   };
 
-  const fetchEntities = () => {
-    fetch('/api/entities')
-      .then(res => res.json())
-      .then(data => setEntitiesList(data))
-      .catch(err => console.error(err));
-  };
+ 
 
   useEffect(() => {
     fetchParcels();
@@ -99,53 +109,67 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
   }, []);
 
   // Formu açan fonksiyon
-  const openOccupantModal = (structureId: string) => {
-    setActiveStructureId(structureId);
+ 
+  const openAssignModal = (type: 'parcel' | 'structure', targetId: string) => {
+    setAssignTarget({ type, id: targetId });
     setModalMode('select');
     setSelectedEntityId('');
     setEntityForm({ type: 'Şirket', name: '', tc_vkn: '', tax_office: '', phone: '', email: '' });
     setLinkForm({ role: 'Kiracı', has_work_license: false });
+    setSharePercentage(100);
     setIsModalOpen(true);
   };
 
-  // YENİ EKLENEN: Formu veritabanına kaydeden fonksiyon
+  // YENİ EKLENEN: Formu veritabanına kaydeden fonksiyon (Güvenli Versiyon)
   const handleSaveOccupant = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeStructureId) return;
+    if (!assignTarget) return;
 
     let targetEntityId = selectedEntityId;
 
-    // EĞER "YENİ EKLE" SEÇİLMİŞSE ÖNCE MERKEZİ KAYDI OLUŞTUR
-    if (modalMode === 'create') {
-      const entityRes = await fetch('/api/entities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(entityForm)
-      });
-      const entityData = await entityRes.json();
-      targetEntityId = entityData.id;
-    }
+    try {
+      if (modalMode === 'create') {
+        const entityRes = await fetch('/api/entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(entityForm)
+        });
+        if (!entityRes.ok) throw new Error("Firma/Kişi kaydedilirken hata oluştu.");
+        const entityData = await entityRes.json();
+        targetEntityId = entityData.id;
+      }
 
-    if (!targetEntityId) {
-      alert("Lütfen bir firma/kişi seçin veya yeni ekleyin.");
-      return;
-    }
+      if (!targetEntityId) {
+        alert("Lütfen listeden bir firma/kişi seçin veya yeni ekleyin.");
+        return;
+      }
 
-    // ARDINDAN BİNAYLA İLİŞKİLENDİR (ORTAK İŞLEM)
-    await fetch('/api/structure-entities', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ 
-        structure_id: activeStructureId, 
-        entity_id: targetEntityId, 
-        role: linkForm.role, 
-        has_work_license: linkForm.has_work_license 
-      })
-    });
-    
-    setIsModalOpen(false);
-    fetchParcels(); 
-    fetchEntities(); // Yeni eklenen firma listeye girsin diye güncelliyoruz
+      // HEDEFE GÖRE DOĞRU API'YE İSTEK AT
+      if (assignTarget.type === 'structure') {
+        const linkRes = await fetch('/api/structure-entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ structure_id: assignTarget.id, entity_id: targetEntityId, role: linkForm.role, has_work_license: linkForm.has_work_license })
+        });
+        if (!linkRes.ok) throw new Error("Binaya atama yapılamadı.");
+      } 
+      else if (assignTarget.type === 'parcel') {
+        const linkRes = await fetch('/api/parcel-entities', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parcel_id: assignTarget.id, entity_id: targetEntityId, share_percentage: sharePercentage })
+        });
+        if (!linkRes.ok) throw new Error("Parsele arsa sahibi atanamadı.");
+      }
+      
+      setIsModalOpen(false);
+      fetchParcels(); 
+      fetchEntities(); 
+      
+    } catch (err: any) {
+      console.error(err);
+      alert(`HATA: ${err.message}`);
+    }
   };
 
   const filteredParcels = parcels.filter(p => 
@@ -217,6 +241,54 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
+                
+                {/* ---------------- BURADAN İTİBAREN YAPIŞTIRIN ---------------- */}
+                {/* ARSA SAHİPLERİ (MALİKLER) BÖLÜMÜ */}
+                <div className="bg-[#252526] border border-[#333] rounded-lg p-3 shadow-md mb-6">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-bold text-gray-200 flex items-center gap-2">
+                      <Users size={18} className="text-purple-400"/> Arsa Sahipleri (Tapu/Tahsis)
+                    </h4>
+                    <button 
+                      onClick={() => openAssignModal('parcel', selectedParcel.id)} 
+                      className="flex items-center gap-1 bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-xs font-semibold transition-colors shadow-sm"
+                    >
+                      <Plus size={14} /> Malik Ata
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {(!selectedParcel.owners || selectedParcel.owners.length === 0) && (
+                      <p className="text-xs text-gray-500 italic text-center p-2">Bu parsele henüz arsa sahibi atanmamış.</p>
+                    )}
+                    {selectedParcel.owners?.map((owner: any) => (
+                      <div key={owner.id} className="bg-[#1e1e1e] border border-[#444] rounded p-2 text-sm flex justify-between items-center">
+                        <div>
+                          <span className="font-bold text-gray-100">{owner.name}</span>
+                          <span className="ml-2 text-xs text-gray-400">({owner.type})</span>
+                        </div>
+                        <span className="bg-purple-500/20 text-purple-400 border border-purple-500/30 px-2 py-0.5 rounded text-[10px] uppercase font-bold tracking-wider">
+                          Hisse: %{owner.share_percentage}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* AYIRICI ÇİZGİ VE BİNALAR BÖLÜMÜ BAŞLANGICI */}
+                <div className="border-t border-[#333] pt-4 mb-4">
+                  <h4 className="font-bold text-gray-200 flex items-center gap-2 mb-3">
+                     Binalar ve Tesisler
+                  </h4>
+                </div>
+                {/* ---------------- BURAYA KADAR YAPIŞTIRIN ---------------- */}
+
+                {selectedParcel.structures?.length === 0 && (
+                  <div className="text-center text-gray-500 py-10 bg-[#1e1e1e] rounded-lg border border-dashed border-[#444]">
+                     Bu parselde henüz kayıtlı yapı/bina bulunmuyor.<br/>Sağ üstteki yeşil butondan ekleyebilirsiniz.
+                  </div>
+                )}
                 {selectedParcel.structures?.length === 0 && (
                   <div className="text-center text-gray-500 py-10 bg-[#1e1e1e] rounded-lg border border-dashed border-[#444]">
                     Bu parselde henüz kayıtlı yapı/bina bulunmuyor.<br/>Sağ üstteki yeşil butondan ekleyebilirsiniz.
@@ -229,7 +301,7 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
                         <Building size={18} className="text-gray-400"/> {structure.name}
                       </h4>
                       <button 
-                        onClick={() => openOccupantModal(structure.id)} 
+                        onClick={() => openAssignModal('structure', structure.id)} 
                         className="flex items-center gap-1 bg-[#333] hover:bg-[#444] border border-[#555] text-white px-3 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
                       >
                         <Users size={14} /> Malik/Kiracı Ekle
@@ -360,21 +432,31 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
                   )}
 
                   {/* BU BİNA İÇİN GEÇERLİ OLACAK ROL VE RUHSAT (ORTAK ALAN) */}
+                 {/* HEDEFE GÖRE DEĞİŞEN ALT FORM KISMI */}
                   <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#333]">
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Bu Binadaki Rolü</label>
-                      <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.role} onChange={e => setLinkForm({...linkForm, role: e.target.value})}>
-                        <option value="Kiracı">Kiracı</option>
-                        <option value="Malik">Mülk Sahibi (Malik)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Çalışma Ruhsatı</label>
-                      <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({...linkForm, has_work_license: e.target.value === "true"})}>
-                        <option value="false">Yok / Alınmadı</option>
-                        <option value="true">Var (Aktif)</option>
-                      </select>
-                    </div>
+                    {assignTarget?.type === 'structure' ? (
+                      <>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">Bu Binadaki Rolü</label>
+                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.role} onChange={e => setLinkForm({...linkForm, role: e.target.value})}>
+                            <option value="Kiracı">Kiracı</option>
+                            <option value="Malik">Mülk Sahibi (Malik)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">Çalışma Ruhsatı</label>
+                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({...linkForm, has_work_license: e.target.value === "true"})}>
+                            <option value="false">Yok / Alınmadı</option>
+                            <option value="true">Var (Aktif)</option>
+                          </select>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="col-span-2">
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Hisse Oranı (%)</label>
+                        <input type="number" min="1" max="100" className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500" value={sharePercentage} onChange={e => setSharePercentage(Number(e.target.value))} />
+                      </div>
+                    )}
                   </div>
 
                   <div className="pt-3 mt-2 border-t border-[#333] flex justify-end gap-2">
