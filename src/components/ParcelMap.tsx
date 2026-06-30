@@ -29,43 +29,53 @@ export default function ParcelMap() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const mapRef = useRef<L.Map>(null); // Haritaya dışarıdan müdahale için referans
 
-  const fetchParcels = (isInitialLoad = false) => {
-    fetch('/api/parcels')
-      .then((res) => res.json())
-      .then((data) => {
+ const fetchParcels = (isInitialLoad = false) => {
+  fetch('/api/parcels')
+    .then(async (res) => {
+      if (!res.ok) {
+        throw new Error(`API Hatası: Sunucu ${res.status} döndürdü.`);
+      }
+      return res.json();
+    })
+    .then((data) => {
+      // Gelen verinin dizi (array) olup olmadığını kontrol et
+      if (Array.isArray(data)) {
         setParcels(data);
-        setLoading(false);
+      } else {
+        setParcels([]);
+      }
+      setLoading(false);
 
-        if (isInitialLoad && data.length > 0) {
-          const latLngs: L.LatLng[] = [];
-          data.forEach((parcel: any) => {
-            // Sadece Polygon veya MultiPolygon ise sınırları hesapla
-            if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
-              try {
-                const coords = parcel.geometry.type === 'Polygon' 
-                  ? parcel.geometry.coordinates[0] 
-                  : parcel.geometry.coordinates[0][0]; // MultiPolygon için ilk poligonun ilk halkası
-                  
-                if (Array.isArray(coords)) {
-                  coords.forEach(([lng, lat]: [number, number]) => {
-                    if (lat && lng) latLngs.push(L.latLng(lat, lng));
-                  });
-                }
-              } catch (e) {
-                console.warn("Sınır hesaplama hatası atlandı.", e);
+      if (isInitialLoad && Array.isArray(data) && data.length > 0) {
+        const latLngs: L.LatLng[] = [];
+        data.forEach((parcel: any) => {
+          if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
+            try {
+              const coords = parcel.geometry.type === 'Polygon' 
+                ? parcel.geometry.coordinates[0] 
+                : parcel.geometry.coordinates[0][0]; 
+                
+              if (Array.isArray(coords)) {
+                coords.forEach(([lng, lat]: [number, number]) => {
+                  if (lat && lng) latLngs.push(L.latLng(lat, lng));
+                });
               }
+            } catch (e) {
+              console.warn("Sınır hesaplama hatası atlandı.", e);
             }
-          });
-          if (latLngs.length > 0) {
-            setMapBounds(L.latLngBounds(latLngs));
           }
+        });
+        if (latLngs.length > 0) {
+          setMapBounds(L.latLngBounds(latLngs));
         }
-      })
-      .catch((err) => {
-        console.error('Parseller yüklenirken hata oluştu:', err);
-        setLoading(false);
-      });
-  };
+      }
+    })
+    .catch((err) => {
+      console.error('Parseller yüklenirken hata oluştu:', err);
+      setParcels([]); // Haritanın çökmesini engellemek için boş diziye çek
+      setLoading(false); // Yüklenme ekranından çık
+    });
+};
 
   useEffect(() => {
     fetchParcels(true); 

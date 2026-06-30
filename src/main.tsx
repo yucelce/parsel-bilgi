@@ -1,9 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-
-// Eğer TailwindCSS veya global stilleriniz varsa buraya ekleyin.
-// Örn: import './index.css';
+import './index.css'; // Yorum satırını kaldırdık ve projeye dahil ettik
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
