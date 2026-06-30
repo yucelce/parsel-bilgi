@@ -11,8 +11,13 @@ function App() {
     <div className="h-screen w-screen bg-[#1e1e1e] flex flex-col font-sans overflow-hidden text-gray-200">
       <header className="bg-[#252526] border-b border-[#333] px-4 py-2 flex items-center justify-between shadow-md z-10 select-none">
         <div className="flex items-center gap-3">
-          <div className="bg-blue-600 text-white p-1.5 rounded-md shadow-sm">
-            <MapIcon size={18} />
+          {/* LOGO BURAYA EKLENDİ */}
+          <div className="bg-white p-1 rounded-md shadow-sm h-10 w-10 flex items-center justify-center">
+            <img 
+              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
+              alt="OSB Logo" 
+              className="max-h-full max-w-full object-contain"
+            />
           </div>
           <div>
             <h1 className="text-sm font-bold tracking-wide text-gray-100">OSB PARSEL BİLGİ SİSTEMİ</h1>
