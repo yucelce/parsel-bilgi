@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+/* Harita İçi Merkez Etiket (Tooltip) Stilleri */
+.parcel-center-label {
+  background-color: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #ffffff; /* Yazı rengi beyaz */
+  font-weight: 700;
+  font-size: 0.9rem;
+  /* Yazının harita üzerinde okunabilmesi için etrafına siyah CAD gölgesi */
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9), 1px -1px 2px rgba(0,0,0,0.9), -1px 1px 2px rgba(0,0,0,0.9);
+  white-space: nowrap;
+}
+
+/* Standart Tooltip okunu (üçgenini) gizle */
+.parcel-center-label::before {
+  display: none !important;
+}

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, useMap, LayersControl } from 'react-leaflet';
+
+import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, Tooltip, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
 import { Upload, Focus, Download } from 'lucide-react';
@@ -346,6 +347,10 @@ export default function ParcelMap() {
               geometry: parcel.geometry
             };
 
+            // YENİ EKLENEN KISIM: Ada ve Parsel bilgisini al, '/' işaretini '-' yap.
+            const rawAdaParsel = parcel.ada_parsel || '';
+            const labelText = rawAdaParsel.replace(/\//g, '-') || parcel.name || '';
+
             return (
               <GeoJSON
                 key={`parcel-${parcel.id}-${parcel.geometry.coordinates?.length || 0}`} 
@@ -357,6 +362,13 @@ export default function ParcelMap() {
                   weight: 2
                 }}
               >
+                {/* HARİTA ÜZERİNDE ORTADA GÖRÜNECEK KALICI ETİKET */}
+                {labelText && (
+                  <Tooltip permanent direction="center" className="parcel-center-label">
+                    {labelText}
+                  </Tooltip>
+                )}
+
                 <Popup minWidth={300}>
                   <div className="font-sans text-sm p-1 text-gray-800">
                     <div className="border-b pb-2 mb-2">
