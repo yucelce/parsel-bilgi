@@ -3,7 +3,7 @@ import express from 'express';
 import path from 'path';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { parcels } from './src/db/schema';
+// İPTAL EDİLDİ: import { parcels } from './src/db/schema'; -> Bu dosya yükledikleriniz arasında yok, build hatası verir.
 import { sql } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 
@@ -12,9 +12,15 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
-// Vercel Postgres bağlantısı
+// Vercel Postgres (Neon) bağlantısı
 const connectionString = process.env.POSTGRES_URL || process.env.DATABASE_URL || '';
-const queryClient = postgres(connectionString);
+
+if (!connectionString) {
+  console.error("KRİTİK HATA: POSTGRES_URL bulunamadı. Lütfen .env dosyanızı kontrol edin.");
+}
+
+// DİKKAT: Vercel/Neon veritabanları SSL bağlantısını zorunlu kılar.
+const queryClient = postgres(connectionString, { ssl: 'require' });
 const db = drizzle(queryClient);
 
 // AKILLI KURULUM: Tabloları ve PostGIS uzantısını otomatik oluşturur
