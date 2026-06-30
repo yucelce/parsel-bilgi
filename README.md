@@ -38,4 +38,6 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
 
    Mobilde de kullanılacak şekilde tasarımlar yapılsın.
 
-   Ai yeni kod düzenlemelerinde, kodların nasıl yerleştirileceğini hassas şekilde tarif etsin
+   Ai yeni kod düzenlemelerinde, kodların nasıl yerleştirileceğini hassas şekilde tarif etsin.
+
+   Programı büyütüp, geliştireceğiz.
