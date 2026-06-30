@@ -11,7 +11,6 @@ interface ParcelSidebarProps {
   onManage: () => void;
 }
 
-// Ağaç Yapısındaki açılır/kapanır dallar için yardımcı bileşen
 const TreeNode = ({ title, icon, defaultOpen = false, children, rightElement }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
@@ -40,7 +39,6 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
   return (
     <div className="absolute top-0 left-0 h-full w-80 bg-[#252526]/95 backdrop-blur-md border-r border-[#3c3c3c] shadow-2xl z-[500] flex flex-col text-gray-200 select-none transform transition-transform duration-300">
       
-      {/* Üst Kısım / Başlık */}
       <div className="p-4 border-b border-[#3c3c3c] bg-[#1e1e1e] flex justify-between items-start">
         <div>
           <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
@@ -56,7 +54,6 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
         </button>
       </div>
 
-      {/* Aksiyon Butonları */}
       <div className="p-3 border-b border-[#3c3c3c] bg-[#2d2d2d] flex gap-2">
         <button 
           onClick={onManage}
@@ -66,10 +63,8 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
         </button>
       </div>
 
-      {/* Bilgi Ağacı (Tree View) */}
       <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
         
-        {/* 1. Arsa Malikleri */}
         <div>
           <div className="text-[10px] font-bold uppercase text-gray-500 border-b border-[#444] pb-1 mb-2">Mülkiyet Bilgileri</div>
           {(!parcel.owners || parcel.owners.length === 0) ? (
@@ -88,7 +83,6 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
           )}
         </div>
 
-        {/* 2. Yapılar ve Bağımsız Bölümler */}
         <div>
           <div className="text-[10px] font-bold uppercase text-gray-500 border-b border-[#444] pb-1 mb-2">Fiziksel Hiyerarşi (Katmanlar)</div>
           {(!parcel.structures || parcel.structures.length === 0) ? (
@@ -98,10 +92,12 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
               <TreeNode key={structure.id} title={structure.name} icon={<Building size={12} className="text-blue-400"/>} defaultOpen={true}>
                 
                 {(!structure.units || structure.units.length === 0) ? (
-                  <p className="text-[9px] text-gray-600 italic pl-6">İç birim yok.</p>
+                  // YENİ: İÇ BİRİM YERİNE BAĞIMSIZ BÖLÜM YAZDIK
+                  <p className="text-[9px] text-gray-600 italic pl-6">Bağımsız bölüm yok.</p>
                 ) : (
                   structure.units.map((unit: any) => (
-                    <TreeNode key={unit.id} title={`${unit.name} [${unit.unit_no}]`} icon={<DoorOpen size={12} className="text-amber-400"/>} defaultOpen={true}>
+                    // YENİ: BB NO VE NİTELİĞİ DAHA OKUNAKLI FORMATTA GÖSTERİYORUZ
+                    <TreeNode key={unit.id} title={`BB No: ${unit.unit_no} (${unit.name})`} icon={<DoorOpen size={12} className="text-amber-400"/>} defaultOpen={true}>
                       
                       {(!unit.occupants || unit.occupants.length === 0) ? (
                         <p className="text-[9px] text-gray-600 italic pl-6">İşletme/Kiracı atanmamış.</p>
@@ -132,7 +128,6 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
             ))
           )}
         </div>
-
       </div>
     </div>
   );

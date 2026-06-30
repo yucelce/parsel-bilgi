@@ -1,9 +1,9 @@
 // src/components/ManagementPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  X, Search, Plus, Building, Users, Phone, Mail, 
-  FileCheck, Trash2, DoorOpen, ShieldAlert, BarChart3, 
-  Layers, CheckCircle2, AlertTriangle 
+import {
+  X, Search, Plus, Building, Users, Phone, Mail,
+  FileCheck, Trash2, DoorOpen, ShieldAlert, BarChart3,
+  Layers, CheckCircle2, AlertTriangle
 } from 'lucide-react';
 
 interface ManagementPanelProps {
@@ -21,14 +21,14 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
   // Modal ve Atama State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [assignTarget, setAssignTarget] = useState<{type: 'parcel' | 'unit', id: string} | null>(null);
-  const [sharePercentage, setSharePercentage] = useState<number>(100); 
-  
+  const [assignTarget, setAssignTarget] = useState<{ type: 'parcel' | 'unit', id: string } | null>(null);
+  const [sharePercentage, setSharePercentage] = useState<number>(100);
+
   // Paydaş (Firma/Kişi) State'leri
-  const [entitiesList, setEntitiesList] = useState<any[]>([]); 
-  const [modalMode, setModalMode] = useState<'select' | 'create'>('select'); 
-  const [selectedEntityId, setSelectedEntityId] = useState<string>(''); 
-  
+  const [entitiesList, setEntitiesList] = useState<any[]>([]);
+  const [modalMode, setModalMode] = useState<'select' | 'create'>('select');
+  const [selectedEntityId, setSelectedEntityId] = useState<string>('');
+
   // Form State'leri
   const [entityForm, setEntityForm] = useState({
     type: 'Şirket',
@@ -108,7 +108,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
   const addStructure = async () => {
     const name = prompt("Yeni Yapı/Bina Adı Giriniz (Örn: İdari Bina, Fabrika Hol-1, Depo):");
     if (!name || !selectedParcel) return;
-    
+
     try {
       const res = await fetch('/api/structures', {
         method: 'POST',
@@ -122,10 +122,13 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
   };
 
   const addIndependentUnit = async (structureId: string, structureName: string) => {
-    const name = prompt(`${structureName} içerisine eklenecek birim türü nedir? (Örn: Atölye, Ofis, Dükkan, Laboratuvar):`, "Atölye");
-    if (!name) return;
-    const unitNo = prompt(`Bu ${name} için İç Kapı / Bağımsız Bölüm Numarası girin (Örn: 1, 3B, Z-02):`);
+    // 1. Resmi Bağımsız Bölüm Numarası
+    const unitNo = prompt(`${structureName} içerisine eklenecek olan Bağımsız Bölüm Numarasını giriniz (Örn: 1, 3B, Z-02):`);
     if (!unitNo) return;
+
+    // 2. Resmi Nitelik
+    const name = prompt(`No: ${unitNo} olan bu Bağımsız Bölümün NİTELİĞİ nedir?\n(Tapu/İskan belgesindeki gibi. Örn: Dükkan, İmalathane, Ofis, Laboratuvar, Depo):`, "İmalathane");
+    if (!name) return;
 
     try {
       const res = await fetch('/api/independent-units', {
@@ -212,7 +215,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
           })
         });
         if (!res.ok) throw new Error("Bağımsız bölüme atama başarısız.");
-      } 
+      }
       else if (assignTarget.type === 'parcel') {
         const res = await fetch('/api/parcel-entities', {
           method: 'POST',
@@ -225,11 +228,11 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
         });
         if (!res.ok) throw new Error("Mülk sahibi ataması başarısız.");
       }
-      
+
       setIsModalOpen(false);
-      fetchParcels(); 
-      fetchEntities(); 
-      
+      fetchParcels();
+      fetchEntities();
+
     } catch (err: any) {
       alert(`Hata: ${err.message}`);
     }
@@ -237,9 +240,9 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
   // --- DİNAMİK FİLTRELEME VE ARAMA MANTIĞI ---
   const filteredParcels = parcels.filter(p => {
-    const matchesSearch = (p.ada_parsel || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
+    const matchesSearch = (p.ada_parsel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
+
     if (!matchesSearch) return false;
 
     // Bağımsız bölüm hesaplamaları
@@ -260,7 +263,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
     if (filterType === 'empty') return totalUnits === 0 || occupiedUnits === 0;
     if (filterType === 'unlicensed') return missingLicense;
-    
+
     return true;
   });
 
@@ -292,7 +295,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
   return (
     <div className="absolute inset-0 bg-[#1e1e1e]/95 z-[999] p-6 flex flex-col overflow-hidden backdrop-blur-sm select-none">
-      
+
       {/* ÜST PANEL / HEADER */}
       <div className="flex justify-between items-center mb-6 border-b border-[#3c3c3c] pb-4">
         <div>
@@ -308,10 +311,10 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
       {/* ANA GÖVDE */}
       <div className="flex flex-1 gap-6 overflow-hidden relative">
-        
+
         {/* SOL KOLON: PARSEL LİSTELEME VE FİLTRELER */}
         <div className="w-1/3 flex flex-col border border-[#3c3c3c] rounded-lg bg-[#252526] overflow-hidden shadow-xl">
-          
+
           {/* Arama Kutusu */}
           <div className="p-3 bg-[#2d2d2d] border-b border-[#3c3c3c]">
             <div className="relative">
@@ -328,19 +331,19 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
           {/* Gelişmiş CAD Tarzı Filtre Butonları */}
           <div className="grid grid-cols-3 gap-1 p-2 bg-[#2a2a2b] border-b border-[#3c3c3c] text-[11px] font-bold">
-            <button 
+            <button
               onClick={() => setFilterType('all')}
               className={`py-1.5 rounded border transition-colors cursor-pointer ${filterType === 'all' ? 'bg-blue-600 text-white border-blue-500' : 'bg-[#1e1e1e] text-gray-400 border-[#444] hover:bg-[#333]'}`}
             >
               Tümü ({parcels.length})
             </button>
-            <button 
+            <button
               onClick={() => setFilterType('empty')}
               className={`py-1.5 rounded border transition-colors cursor-pointer ${filterType === 'empty' ? 'bg-amber-600/30 text-amber-400 border-amber-500/40' : 'bg-[#1e1e1e] text-gray-400 border-[#444] hover:bg-[#333]'}`}
             >
               Boş Tesisler
             </button>
-            <button 
+            <button
               onClick={() => setFilterType('unlicensed')}
               className={`py-1.5 rounded border transition-colors cursor-pointer ${filterType === 'unlicensed' ? 'bg-red-600/30 text-red-400 border-red-500/40' : 'bg-[#1e1e1e] text-gray-400 border-[#444] hover:bg-[#333]'}`}
             >
@@ -364,8 +367,8 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                 });
 
                 return (
-                  <div 
-                    key={parcel.id} 
+                  <div
+                    key={parcel.id}
                     onClick={() => setSelectedParcel(parcel)}
                     className={`p-3 border-b border-[#2d2d2d] cursor-pointer transition-colors flex justify-between items-center ${selectedParcel?.id === parcel.id ? 'bg-blue-950/40 border-l-4 border-l-blue-500' : 'hover:bg-[#252526]'}`}
                   >
@@ -395,7 +398,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
         <div className="w-2/3 flex flex-col border border-[#3c3c3c] rounded-lg bg-[#252526] overflow-hidden shadow-xl">
           {selectedParcel ? (
             <div className="flex flex-col h-full bg-[#1e1e1e]">
-              
+
               {/* SAĞ PANEL ÜST AKSİYON BARBARI */}
               <div className="p-4 bg-[#2d2d2d] border-b border-[#3c3c3c] flex justify-between items-center">
                 <div>
@@ -405,14 +408,14 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                   </h3>
                 </div>
                 <div className="flex gap-2">
-                  <button 
-                    onClick={() => deleteParcel(selectedParcel.id)} 
+                  <button
+                    onClick={() => deleteParcel(selectedParcel.id)}
                     className="flex items-center gap-1.5 bg-red-600/20 text-red-400 border border-red-500/30 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer shadow-md"
                   >
                     <Trash2 size={14} /> Parseli Sil
                   </button>
-                  <button 
-                    onClick={addStructure} 
+                  <button
+                    onClick={addStructure}
                     className="flex items-center gap-1.5 bg-green-600 text-white hover:bg-green-700 px-3 py-1.5 rounded text-xs font-bold transition-all cursor-pointer shadow-md"
                   >
                     <Plus size={14} /> Yeni Yapı/Bina Ekle
@@ -444,21 +447,21 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
               {/* İÇERİK ALANI */}
               <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#1e1e1e]">
-                
+
                 {/* BÖLÜM 1: ARSA MALİKLERİ */}
                 <div className="bg-[#1e1e1e] border border-[#444] rounded-sm p-0 shadow-sm">
                   <div className="flex justify-between items-center p-2 bg-[#2d2d2d] border-b border-[#444]">
                     <h4 className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
                       <Users size={14} /> Arsa Malikleri Bilgileri
                     </h4>
-                    <button 
-                      onClick={() => openAssignModal('parcel', selectedParcel.id)} 
+                    <button
+                      onClick={() => openAssignModal('parcel', selectedParcel.id)}
                       className="flex items-center gap-1 hover:bg-purple-600/30 text-purple-400 px-1.5 py-0.5 rounded text-[10px] transition-colors cursor-pointer"
                     >
                       <Plus size={12} /> Malik Ekle
                     </button>
                   </div>
-                  
+
                   <div className="p-2 space-y-1">
                     {(!selectedParcel.owners || selectedParcel.owners.length === 0) ? (
                       <p className="text-[10px] text-gray-500 italic text-center py-2">Kayıtlı malik bulunamadı.</p>
@@ -480,7 +483,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                     )}
                   </div>
                 </div>
-                
+
                 {/* BÖLÜM 2: YAPILAR VE BAĞIMSIZ BÖLÜMLER (MİMARİ HİYERARŞİ) */}
                 <div className="mt-4">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5 border-b border-[#444] pb-1">
@@ -495,7 +498,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                     <div className="space-y-2">
                       {selectedParcel.structures.map((structure: any) => (
                         <div key={structure.id} className="bg-[#1e1e1e] border border-[#444] rounded-sm overflow-hidden">
-                          
+
                           {/* Bina Başlık Alanı */}
                           <div className="flex justify-between items-center p-1.5 bg-[#252526] border-b border-[#444] group">
                             <div className="flex items-center gap-2">
@@ -506,34 +509,39 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                                 <Trash2 size={12} />
                               </button>
                             </div>
-                            <button 
-                              onClick={() => addIndependentUnit(structure.id, structure.name)} 
+                            {/* Eski kodunuzdaki İç Birim Ekle butonunun yerine bunu yapıştırın */}
+                            <button
+                              onClick={() => addIndependentUnit(structure.id, structure.name)}
                               className="flex items-center gap-1 hover:bg-[#333] text-gray-300 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer"
                             >
-                              <Plus size={10} /> İç Birim Ekle
+                              <Plus size={10} /> Bağ. Bölüm Ekle
                             </button>
                           </div>
-                          
+
                           {/* Binanın İçindeki Bağımsız Bölümler */}
                           <div className="p-1.5 space-y-1.5 bg-[#1e1e1e]">
                             {(!structure.units || structure.units.length === 0) ? (
-                              <p className="text-[10px] text-gray-600 italic pl-6">İç birim tanımlanmamış.</p>
+                              <p className="text-[10px] text-gray-600 italic pl-6">Bağımsız bölüm tanımlanmamış.</p>
                             ) : (
                               structure.units.map((unit: any) => (
                                 <div key={unit.id} className="ml-4 border-l border-dashed border-[#555] pl-2 py-1 group/unit">
-                                  
+
                                   {/* Bağımsız Bölüm Bilgisi */}
                                   <div className="flex justify-between items-center mb-1">
+                                    {/* Eski kodunuzda sadece unit.name yazan kısmı aşağıdaki yapıyla değiştirin */}
                                     <div className="flex items-center gap-1.5 font-mono text-[10px]">
                                       <DoorOpen size={12} className="text-gray-400" />
-                                      <span className="font-bold text-gray-300">{unit.name}</span>
-                                      <span className="text-blue-500">[{unit.unit_no}]</span>
-                                      <button onClick={() => deleteUnit(unit.id, unit.name)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover/unit:opacity-100 transition-opacity ml-1" title="Birimi Sil">
+                                      <span className="font-bold text-blue-400">BB No: {unit.unit_no}</span>
+                                      <span className="text-gray-400">({unit.name})</span>
+                                      <button
+                                        onClick={() => deleteUnit(unit.id, unit.name)}
+                                        className="text-gray-600 hover:text-red-500 opacity-0 group-hover/unit:opacity-100 transition-opacity ml-1"
+                                      >
                                         <Trash2 size={11} />
                                       </button>
                                     </div>
-                                    <button 
-                                      onClick={() => openAssignModal('unit', unit.id)} 
+                                    <button
+                                      onClick={() => openAssignModal('unit', unit.id)}
                                       className="flex items-center gap-1 text-blue-400 hover:bg-blue-900/30 px-1.5 py-0.5 rounded text-[9px] transition-colors cursor-pointer"
                                     >
                                       <Plus size={10} /> İşletme Ata
@@ -542,7 +550,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
 
                                   {/* Bağımsız Bölüm Sakinleri */}
                                   {(!unit.occupants || unit.occupants.length === 0) ? (
-                                    <p className="text-[9px] text-gray-600 italic m-0 flex items-center gap-1"><AlertTriangle size={10} className="text-amber-700"/> Boş</p>
+                                    <p className="text-[9px] text-gray-600 italic m-0 flex items-center gap-1"><AlertTriangle size={10} className="text-amber-700" /> Boş</p>
                                   ) : (
                                     <div className="space-y-1 mt-1">
                                       {unit.occupants.map((occ: any) => (
@@ -590,16 +598,16 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
           {isModalOpen && (
             <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-[#252526] border border-[#3c3c3c] rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
-                
+
                 <div className="p-4 bg-[#2d2d2d] border-b border-[#3c3c3c] flex justify-between items-center">
                   <h3 className="font-bold text-xs font-mono uppercase tracking-wider text-blue-400">
                     {assignTarget?.type === 'unit' ? 'Bağımsız Bölüme Sakin/Firma Ata' : 'Arsa Sahipliği / Malik Ata'}
                   </h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer"><X size={18}/></button>
+                  <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer"><X size={18} /></button>
                 </div>
-                
+
                 <form onSubmit={handleSaveOccupant} className="p-5 space-y-4">
-                  
+
                   {/* Sistem Seçimi / Yeni Oluştur Sekmesi */}
                   <div className="flex bg-[#1e1e1e] p-1 rounded border border-[#444] text-xs font-bold">
                     <button type="button" onClick={() => setModalMode('select')} className={`flex-1 py-2 rounded transition-all cursor-pointer ${modalMode === 'select' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Kayıtlı Havuzdan Seç</button>
@@ -609,7 +617,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                   {modalMode === 'select' ? (
                     <div>
                       <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Paydaş Listesi</label>
-                      <select 
+                      <select
                         required={modalMode === 'select'}
                         className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-xs outline-none focus:border-blue-500 font-mono"
                         value={selectedEntityId}
@@ -625,27 +633,27 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                     <div className="space-y-3 bg-[#1e1e1e] p-3 rounded border border-[#333] text-xs font-mono">
                       <div className="flex gap-4 mb-1">
                         <label className="flex items-center gap-1.5 text-gray-300 cursor-pointer">
-                          <input type="radio" checked={entityForm.type === 'Şirket'} onChange={() => setEntityForm({...entityForm, type: 'Şirket'})} /> Şirket (Tüzel Kişi)
+                          <input type="radio" checked={entityForm.type === 'Şirket'} onChange={() => setEntityForm({ ...entityForm, type: 'Şirket' })} /> Şirket (Tüzel Kişi)
                         </label>
                         <label className="flex items-center gap-1.5 text-gray-300 cursor-pointer">
-                          <input type="radio" checked={entityForm.type === 'Kişi'} onChange={() => setEntityForm({...entityForm, type: 'Kişi'})} /> Şahıs (Gerçek Kişi)
+                          <input type="radio" checked={entityForm.type === 'Kişi'} onChange={() => setEntityForm({ ...entityForm, type: 'Kişi' })} /> Şahıs (Gerçek Kişi)
                         </label>
                       </div>
 
                       <div>
                         <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Unvan / Tam Ad Soyad</label>
-                        <input required={modalMode === 'create'} type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={entityForm.name} onChange={e => setEntityForm({...entityForm, name: e.target.value})} />
+                        <input required={modalMode === 'create'} type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={entityForm.name} onChange={e => setEntityForm({ ...entityForm, name: e.target.value })} />
                       </div>
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">{entityForm.type === 'Şirket' ? 'Vergi Kimlik No' : 'TC Kimlik No'}</label>
-                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.tc_vkn} onChange={e => setEntityForm({...entityForm, tc_vkn: e.target.value})} />
+                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.tc_vkn} onChange={e => setEntityForm({ ...entityForm, tc_vkn: e.target.value })} />
                         </div>
                         {entityForm.type === 'Şirket' && (
                           <div>
                             <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Vergi Dairesi</label>
-                            <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.tax_office} onChange={e => setEntityForm({...entityForm, tax_office: e.target.value})} />
+                            <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.tax_office} onChange={e => setEntityForm({ ...entityForm, tax_office: e.target.value })} />
                           </div>
                         )}
                       </div>
@@ -653,11 +661,11 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">Telefon Numarası</label>
-                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.phone} onChange={e => setEntityForm({...entityForm, phone: e.target.value})} />
+                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.phone} onChange={e => setEntityForm({ ...entityForm, phone: e.target.value })} />
                         </div>
                         <div>
                           <label className="block text-[10px] text-gray-400 font-bold uppercase mb-1">E-Posta Adresi</label>
-                          <input type="email" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.email} onChange={e => setEntityForm({...entityForm, email: e.target.value})} />
+                          <input type="email" className="w-full bg-[#252526] border border-[#444] rounded p-2 text-white outline-none" value={entityForm.email} onChange={e => setEntityForm({ ...entityForm, email: e.target.value })} />
                         </div>
                       </div>
                     </div>
@@ -669,14 +677,14 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                       <>
                         <div>
                           <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">Birimdeki Rolü</label>
-                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={linkForm.role} onChange={e => setLinkForm({...linkForm, role: e.target.value})}>
+                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={linkForm.role} onChange={e => setLinkForm({ ...linkForm, role: e.target.value })}>
                             <option value="Kiracı">Kiracı</option>
                             <option value="Malik">Mülk Sahibi (Kendi İşletiyor)</option>
                           </select>
                         </div>
                         <div>
                           <label className="block text-[11px] font-bold text-gray-400 uppercase mb-1">GSM/İşyeri Çalışma Ruhsatı</label>
-                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({...linkForm, has_work_license: e.target.value === "true"})}>
+                          <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white outline-none focus:border-blue-500" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({ ...linkForm, has_work_license: e.target.value === "true" })}>
                             <option value="false">Yok / Onay Bekliyor</option>
                             <option value="true">Var (Onaylı/Aktif)</option>
                           </select>
