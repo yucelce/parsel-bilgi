@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, FeatureGroup, Polygon, Popup, useMap, LayersControl } from 'react-leaflet';
+import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -23,9 +23,7 @@ export default function ParcelMap() {
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   
-  // Haritanın odaklanacağı sınırları tutan State
   const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
-
   const [uploading, setUploading] = useState<boolean>(false); 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -39,10 +37,23 @@ export default function ParcelMap() {
         if (isInitialLoad && data.length > 0) {
           const latLngs: L.LatLng[] = [];
           data.forEach((parcel: any) => {
-            if (parcel.geometry && parcel.geometry.type === 'Polygon') {
-              parcel.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
-                latLngs.push(L.latLng(lat, lng));
-              });
+            // Sadece Polygon veya MultiPolygon ise sınırları hesapla
+            if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
+              try {
+                // Leaflet'in GeoJSON katmanı sınırları otomatik hesaplayabilir, ancak 
+                // manuel bounds kontrolü için basit bir tarama yapıyoruz
+                const coords = parcel.geometry.type === 'Polygon' 
+                  ? parcel.geometry.coordinates[0] 
+                  : parcel.geometry.coordinates[0][0]; // MultiPolygon için ilk poligonun ilk halkası
+                  
+                if (Array.isArray(coords)) {
+                  coords.forEach(([lng, lat]: [number, number]) => {
+                    if (lat && lng) latLngs.push(L.latLng(lat, lng));
+                  });
+                }
+              } catch (e) {
+                console.warn("Sınır hesaplama hatası atlandı.", e);
+              }
             }
           });
           if (latLngs.length > 0) {
@@ -121,19 +132,21 @@ export default function ParcelMap() {
             parcelName = props.PARSEL_NO ? `Parsel: ${props.PARSEL_NO}` : `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
           }
 
+          // Yüklenen dosyanın sınırlarını (Bounds) bulmak için
           if (feature.geometry.type === 'Polygon') {
             feature.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
-              uploadedLatLngs.push(L.latLng(lat, lng));
+              if(lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
             });
           } else if (feature.geometry.type === 'MultiPolygon') {
              feature.geometry.coordinates.forEach((polygon: any[]) => {
                 polygon[0].forEach(([lng, lat]: [number, number]) => {
-                   uploadedLatLngs.push(L.latLng(lat, lng));
+                   if(lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
                 });
              });
           }
 
-          await fetch('/api/parcels', {
+          // Backend API'ye kaydet
+          const response = await fetch('/api/parcels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -145,11 +158,18 @@ export default function ParcelMap() {
               status: 'Aktif'
             })
           });
+
+          // EĞER BACKEND KAYDEDEMEZSE SESSİZCE GEÇME, KULLANICIYA BİLDİR
+          if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(`Veritabanı Kayıt Hatası: ${errData.error || response.statusText}`);
+          }
+          
           successCount++;
         }
 
         if (successCount === 0) {
-           throw new Error('Parsellerin geometrisi çıkarılamadı (Sadece nokta/line yüklemiş olabilirsiniz). Sadece Poligon (Alan) desteklenmektedir.');
+           throw new Error('Parsellerin geometrisi çıkarılamadı. Sadece Poligon (Alan) desteklenmektedir.');
         }
 
         if (uploadedLatLngs.length > 0) {
@@ -157,11 +177,11 @@ export default function ParcelMap() {
         }
 
         alert(`${successCount} adet parsel başarıyla işlendi ve haritaya eklendi.`);
-        fetchParcels(false); 
+        fetchParcels(false); // Yeni çizgileri çizdirmek için listeyi güncelle
         
       } catch (err: any) {
         console.error('GeoJSON İşleme Hatası:', err);
-        alert(`❌ PARSEL YÜKLEME BAŞARISIZ!\n\nSebep: ${err.message}\n\nÇözüm: TKGM'den indirdiğiniz orijinal .json dosyasını değiştirmeden yüklemeyi deneyin.`);
+        alert(`❌ PARSEL YÜKLEME BAŞARISIZ!\n\nSebep: ${err.message}`);
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = ''; 
@@ -207,56 +227,52 @@ export default function ParcelMap() {
           zoom={6} 
           style={{ height: '100%', width: '100%' }}
         >
-          {/* HARİTA KATMANLARI SEÇİCİSİ BURADA BAŞLIYOR */}
           <LayersControl position="topleft">
-            
-            {/* 1. Google Karayolları (Klasik Google Haritalar) */}
             <LayersControl.BaseLayer checked name="Google Yol Haritası">
               <TileLayer
                 url="https://mt1.google.com/vt/lyrs=m&hl=tr&x={x}&y={y}&z={z}"
                 attribution="&copy; Google Maps"
               />
             </LayersControl.BaseLayer>
-
-            {/* 2. Google Uydu + Yol İsimleri (Karma) */}
             <LayersControl.BaseLayer name="Google Uydu (Karma)">
               <TileLayer
                 url="https://mt1.google.com/vt/lyrs=y&hl=tr&x={x}&y={y}&z={z}"
                 attribution="&copy; Google Maps"
               />
             </LayersControl.BaseLayer>
-
-            {/* 3. Açık Kaynaklı OSM Yol Haritası */}
             <LayersControl.BaseLayer name="OSM Yol Haritası (Alternatif)">
               <TileLayer
                 attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                 url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               />
             </LayersControl.BaseLayer>
-
-            {/* 4. Esri Profesyonel Uydu Haritası */}
             <LayersControl.BaseLayer name="Esri Detaylı Uydu">
               <TileLayer
                 attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
                 url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
               />
             </LayersControl.BaseLayer>
-
           </LayersControl>
-          {/* HARİTA KATMANLARI SEÇİCİSİ BURADA BİTİYOR */}
 
           <MapBoundsController bounds={mapBounds} />
 
+          {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM TAMAMEN DEĞİŞTİ - GeoJSON KULLANILIYOR */}
           {parcels.map((parcel) => {
-            if (!parcel.geometry || !parcel.geometry.coordinates) return null;
+            if (!parcel.geometry) return null;
             
-            const positions = parcel.geometry.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]);
+            // Veritabanından gelen raw datayı standart Feature nesnesine sarıyoruz
+            const geoJsonFeature: any = {
+              type: "Feature",
+              properties: parcel,
+              geometry: parcel.geometry
+            };
 
             return (
-              <Polygon
-                key={parcel.id}
-                positions={positions}
-                pathOptions={{
+              <GeoJSON
+                // Key önemli: GeoJSON bileşeni veriler değişince kendisini yenilemelidir.
+                key={`parcel-${parcel.id}-${parcel.geometry.coordinates?.length || 0}`} 
+                data={geoJsonFeature}
+                style={{
                   color: '#1e3a8a',
                   fillColor: '#3b82f6',
                   fillOpacity: 0.35,
@@ -278,7 +294,7 @@ export default function ParcelMap() {
                     </div>
                   </div>
                 </Popup>
-              </Polygon>
+              </GeoJSON>
             );
           })}
 
