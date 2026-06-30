@@ -8,14 +8,27 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
   const [selectedParcel, setSelectedParcel] = useState<any | null>(null);
   const hasInitializedEdit = useRef(false);
 
-  // YENİ EKLENEN: Kişi/Firma Ekleme Formu (Modal) için state (durum) yönetimi
+  // YENİ EKLENEN: Kişi/Firma Merkezi Yönetim State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeStructureId, setActiveStructureId] = useState<string | null>(null);
-  const [occupantForm, setOccupantForm] = useState({
+  
+  const [entitiesList, setEntitiesList] = useState<any[]>([]); // Veritabanındaki tüm kişi/firmalar
+  const [modalMode, setModalMode] = useState<'select' | 'create'>('select'); // Form modu
+  const [selectedEntityId, setSelectedEntityId] = useState<string>(''); // Seçim modu state'i
+  
+  // Yeni ekleme modu için state
+  const [entityForm, setEntityForm] = useState({
+    type: 'Şirket',
     name: '',
-    role: 'Kiracı',
+    tc_vkn: '',
+    tax_office: '',
     phone: '',
     email: '',
+  });
+
+  // Ortak ilişki verileri
+  const [linkForm, setLinkForm] = useState({
+    role: 'Kiracı',
     has_work_license: false
   });
 
@@ -73,10 +86,25 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
     fetchParcels();
   };
 
-  // YENİ EKLENEN: Formu açan fonksiyon
+  const fetchEntities = () => {
+    fetch('/api/entities')
+      .then(res => res.json())
+      .then(data => setEntitiesList(data))
+      .catch(err => console.error(err));
+  };
+
+  useEffect(() => {
+    fetchParcels();
+    fetchEntities(); // Panel açıldığında tüm paydaşları da getir
+  }, []);
+
+  // Formu açan fonksiyon
   const openOccupantModal = (structureId: string) => {
     setActiveStructureId(structureId);
-    setOccupantForm({ name: '', role: 'Kiracı', phone: '', email: '', has_work_license: false }); // Formu sıfırla
+    setModalMode('select');
+    setSelectedEntityId('');
+    setEntityForm({ type: 'Şirket', name: '', tc_vkn: '', tax_office: '', phone: '', email: '' });
+    setLinkForm({ role: 'Kiracı', has_work_license: false });
     setIsModalOpen(true);
   };
 
@@ -85,21 +113,39 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
     e.preventDefault();
     if (!activeStructureId) return;
 
-    await fetch('/api/occupants', {
+    let targetEntityId = selectedEntityId;
+
+    // EĞER "YENİ EKLE" SEÇİLMİŞSE ÖNCE MERKEZİ KAYDI OLUŞTUR
+    if (modalMode === 'create') {
+      const entityRes = await fetch('/api/entities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entityForm)
+      });
+      const entityData = await entityRes.json();
+      targetEntityId = entityData.id;
+    }
+
+    if (!targetEntityId) {
+      alert("Lütfen bir firma/kişi seçin veya yeni ekleyin.");
+      return;
+    }
+
+    // ARDINDAN BİNAYLA İLİŞKİLENDİR (ORTAK İŞLEM)
+    await fetch('/api/structure-entities', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ 
         structure_id: activeStructureId, 
-        name: occupantForm.name, 
-        role: occupantForm.role, 
-        phone: occupantForm.phone, 
-        email: occupantForm.email, 
-        has_work_license: occupantForm.has_work_license 
+        entity_id: targetEntityId, 
+        role: linkForm.role, 
+        has_work_license: linkForm.has_work_license 
       })
     });
     
     setIsModalOpen(false);
-    fetchParcels(); // Verileri yenile
+    fetchParcels(); 
+    fetchEntities(); // Yeni eklenen firma listeye girsin diye güncelliyoruz
   };
 
   const filteredParcels = parcels.filter(p => 
@@ -232,83 +278,108 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
           )}
 
           {/* YENİ EKLENEN: FİRMA / İLETİŞİM BİLGİSİ EKLEME MODALI */}
+          {/* YENİ FİRMA / İLETİŞİM BİLGİSİ EKLEME MODALI */}
           {isModalOpen && (
             <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-md overflow-hidden">
+              <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
                 <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#1e1e1e]">
                   <h3 className="font-bold text-gray-100 flex items-center gap-2">
-                    <Users size={18} className="text-blue-400" /> Kişi veya Firma Ekle
+                    <Users size={18} className="text-blue-400" /> Binaya Malik / Kiracı Ata
                   </h3>
                   <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-white"><X size={20}/></button>
                 </div>
                 
                 <form onSubmit={handleSaveOccupant} className="p-5 space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">Unvan / Ad Soyad</label>
-                    <input 
-                      required 
-                      type="text" 
-                      placeholder="Örn: X Otomotiv San. Tic. A.Ş."
-                      className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
-                      value={occupantForm.name} 
-                      onChange={e => setOccupantForm({...occupantForm, name: e.target.value})} 
-                    />
-                  </div>
                   
-                  <div className="grid grid-cols-2 gap-4">
+                  {/* MOD SEÇİCİ (SEKME GÖRÜNÜMÜ) */}
+                  <div className="flex bg-[#1e1e1e] p-1 rounded border border-[#444] mb-4">
+                    <button type="button" onClick={() => setModalMode('select')} className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${modalMode === 'select' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Sistemden Seç</button>
+                    <button type="button" onClick={() => setModalMode('create')} className={`flex-1 py-1.5 text-xs font-bold rounded transition-colors ${modalMode === 'create' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}>Sisteme Yeni Ekle</button>
+                  </div>
+
+                  {modalMode === 'select' ? (
+                    // VAR OLAN FİRMAYI SEÇME EKRANI
                     <div>
-                      <label className="block text-xs font-semibold text-gray-400 mb-1">Rol (Malik / Kiracı)</label>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Kayıtlı Paydaş (Kişi/Firma) Seçin</label>
                       <select 
+                        required={modalMode === 'select'}
                         className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500"
-                        value={occupantForm.role} 
-                        onChange={e => setOccupantForm({...occupantForm, role: e.target.value})}
+                        value={selectedEntityId}
+                        onChange={(e) => setSelectedEntityId(e.target.value)}
                       >
+                        <option value="">-- Listeden Seçin --</option>
+                        {entitiesList.map(ent => (
+                          <option key={ent.id} value={ent.id}>
+                            {ent.name} ({ent.tc_vkn ? `TC/VKN: ${ent.tc_vkn}` : 'TC/VKN Yok'})
+                          </option>
+                        ))}
+                      </select>
+                      {entitiesList.length === 0 && <p className="text-xs text-orange-400 mt-1">Sistemde hiç kayıt yok. Lütfen "Yeni Ekle" sekmesini kullanın.</p>}
+                    </div>
+                  ) : (
+                    // YENİ FİRMA YARATMA EKRANI
+                    <div className="space-y-3 bg-[#1e1e1e] p-3 rounded border border-[#333]">
+                      <div className="flex gap-4 mb-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-300">
+                          <input type="radio" checked={entityForm.type === 'Şirket'} onChange={() => setEntityForm({...entityForm, type: 'Şirket'})} /> Şirket (Tüzel)
+                        </label>
+                        <label className="flex items-center gap-2 text-sm text-gray-300">
+                          <input type="radio" checked={entityForm.type === 'Kişi'} onChange={() => setEntityForm({...entityForm, type: 'Kişi'})} /> Şahıs (Gerçek)
+                        </label>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-gray-400 mb-1">Unvan / Ad Soyad</label>
+                        <input required={modalMode === 'create'} type="text" className="w-full bg-[#252526] border border-[#444] rounded p-1.5 text-white text-sm outline-none" value={entityForm.name} onChange={e => setEntityForm({...entityForm, name: e.target.value})} />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">{entityForm.type === 'Şirket' ? 'Vergi Kimlik No' : 'TC Kimlik No'}</label>
+                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-1.5 text-white text-sm outline-none" value={entityForm.tc_vkn} onChange={e => setEntityForm({...entityForm, tc_vkn: e.target.value})} />
+                        </div>
+                        {entityForm.type === 'Şirket' && (
+                          <div>
+                            <label className="block text-xs font-semibold text-gray-400 mb-1">Vergi Dairesi</label>
+                            <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-1.5 text-white text-sm outline-none" value={entityForm.tax_office} onChange={e => setEntityForm({...entityForm, tax_office: e.target.value})} />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">Telefon Numarası</label>
+                          <input type="text" className="w-full bg-[#252526] border border-[#444] rounded p-1.5 text-white text-sm outline-none" value={entityForm.phone} onChange={e => setEntityForm({...entityForm, phone: e.target.value})} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-gray-400 mb-1">E-Posta Adresi</label>
+                          <input type="email" className="w-full bg-[#252526] border border-[#444] rounded p-1.5 text-white text-sm outline-none" value={entityForm.email} onChange={e => setEntityForm({...entityForm, email: e.target.value})} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* BU BİNA İÇİN GEÇERLİ OLACAK ROL VE RUHSAT (ORTAK ALAN) */}
+                  <div className="grid grid-cols-2 gap-4 pt-2 border-t border-[#333]">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-400 mb-1">Bu Binadaki Rolü</label>
+                      <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.role} onChange={e => setLinkForm({...linkForm, role: e.target.value})}>
                         <option value="Kiracı">Kiracı</option>
                         <option value="Malik">Mülk Sahibi (Malik)</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gray-400 mb-1">Çalışma Ruhsatı</label>
-                      <select 
-                        className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500"
-                        value={occupantForm.has_work_license ? "true" : "false"} 
-                        onChange={e => setOccupantForm({...occupantForm, has_work_license: e.target.value === "true"})}
-                      >
+                      <select className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({...linkForm, has_work_license: e.target.value === "true"})}>
                         <option value="false">Yok / Alınmadı</option>
                         <option value="true">Var (Aktif)</option>
                       </select>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">Telefon Numarası</label>
-                    <input 
-                      type="text" 
-                      placeholder="Örn: 0224 123 45 67"
-                      className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500"
-                      value={occupantForm.phone} 
-                      onChange={e => setOccupantForm({...occupantForm, phone: e.target.value})} 
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-xs font-semibold text-gray-400 mb-1">E-Posta Adresi</label>
-                    <input 
-                      type="email" 
-                      placeholder="Örn: info@firma.com"
-                      className="w-full bg-[#1e1e1e] border border-[#444] rounded p-2 text-white text-sm outline-none focus:border-blue-500"
-                      value={occupantForm.email} 
-                      onChange={e => setOccupantForm({...occupantForm, email: e.target.value})} 
-                    />
-                  </div>
-
                   <div className="pt-3 mt-2 border-t border-[#333] flex justify-end gap-2">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-gray-300 hover:text-white transition-colors">
-                      İptal
-                    </button>
-                    <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-semibold shadow-md transition-colors">
-                      Kaydet
-                    </button>
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm font-semibold text-gray-300 hover:text-white transition-colors">İptal</button>
+                    <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded text-sm font-semibold shadow-md transition-colors">Kaydet & Ata</button>
                   </div>
                 </form>
               </div>

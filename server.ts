@@ -50,14 +50,26 @@ async function initDatabase() {
     `);
 
     // 3. FİRMA VE KİŞİLER TABLOSU (Malik/Kiracı)
+    // 3. MERKEZİ PAYDAŞLAR (KİŞİ/FİRMA) TABLOSU
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS occupants (
+      CREATE TABLE IF NOT EXISTS entities (
+        id UUID PRIMARY KEY,
+        type TEXT DEFAULT 'Şirket',
+        name TEXT,
+        tc_vkn TEXT,
+        tax_office TEXT,
+        phone TEXT,
+        email TEXT
+      );
+    `);
+
+    // 4. BİNA - PAYDAŞ İLİŞKİ TABLOSU (Hangi binada, kim, hangi rolde?)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS structure_entities (
         id UUID PRIMARY KEY,
         structure_id UUID REFERENCES structures(id) ON DELETE CASCADE,
-        name TEXT,
+        entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
         role TEXT,
-        phone TEXT,
-        email TEXT,
         has_work_license BOOLEAN DEFAULT false
       );
     `);
@@ -73,19 +85,32 @@ async function initDatabase() {
 initDatabase();
 
 // TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
+// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
 app.get('/api/parcels', async (req, res) => {
   try {
-    // Tüm tabloları çekiyoruz
     const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel FROM parcels`);
     const structuresRes = await db.execute(sql`SELECT * FROM structures`);
-    const occupantsRes = await db.execute(sql`SELECT * FROM occupants`);
+    const entitiesRes = await db.execute(sql`SELECT * FROM entities`);
+    const structureEntitiesRes = await db.execute(sql`SELECT * FROM structure_entities`);
 
-    // Verileri JavaScript ile birleştiriyoruz (Hiyerarşik Yapı)
     const formattedResult = parcelsRes.map((p: any) => {
       const pStructures = structuresRes
         .filter((s: any) => s.parcel_id === p.id)
         .map((s: any) => {
-          const sOccupants = occupantsRes.filter((o: any) => o.structure_id === s.id);
+          // Bu binaya ait ilişki kayıtlarını bul
+          const sLinks = structureEntitiesRes.filter((se: any) => se.structure_id === s.id);
+          
+          // İlişki kayıtları ile firma/kişi detaylarını birleştir
+          const sOccupants = sLinks.map((link: any) => {
+            const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
+            return {
+              id: link.id,
+              role: link.role,
+              has_work_license: link.has_work_license,
+              ...entityData // Firma adı, telefonu, TC/VKN'si vb. buraya dahil olur
+            };
+          });
+
           return { ...s, occupants: sOccupants };
         });
 
@@ -143,11 +168,40 @@ app.post('/api/structures', async (req, res) => {
 });
 
 // FİRMA/KİŞİ EKLEME
-app.post('/api/occupants', async (req, res) => {
+// SİSTEMDEKİ TÜM FİRMA/KİŞİLERİ GETİR (Listeden seçmek için)
+app.get('/api/entities', async (req, res) => {
   try {
-    const { structure_id, name, role, phone, email, has_work_license } = req.body;
+    const result = await db.execute(sql`SELECT * FROM entities ORDER BY name ASC`);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// YENİ FİRMA / KİŞİ OLUŞTUR (Sisteme yeni kayıt eklerken)
+app.post('/api/entities', async (req, res) => {
+  try {
+    const { type, name, tc_vkn, tax_office, phone, email } = req.body;
     const id = randomUUID();
-    await db.execute(sql`INSERT INTO occupants (id, structure_id, name, role, phone, email, has_work_license) VALUES (${id}, ${structure_id}, ${name}, ${role}, ${phone}, ${email}, ${has_work_license})`);
+    await db.execute(sql`
+      INSERT INTO entities (id, type, name, tc_vkn, tax_office, phone, email) 
+      VALUES (${id}, ${type}, ${name}, ${tc_vkn}, ${tax_office}, ${phone}, ${email})
+    `);
+    res.status(201).json({ id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// BİNAYA PAYDAŞ BAĞLA (Var olan veya yeni eklenen kişiyi binaya atarken)
+app.post('/api/structure-entities', async (req, res) => {
+  try {
+    const { structure_id, entity_id, role, has_work_license } = req.body;
+    const id = randomUUID();
+    await db.execute(sql`
+      INSERT INTO structure_entities (id, structure_id, entity_id, role, has_work_license) 
+      VALUES (${id}, ${structure_id}, ${entity_id}, ${role}, ${has_work_license})
+    `);
     res.status(201).json({ id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });

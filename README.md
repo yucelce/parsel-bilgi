@@ -37,3 +37,5 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
    Tasarım olarak Autocad örnek alınsın.
 
    Mobilde de kullanılacak şekilde tasarımlar yapılsın.
+
+   Ai yeni kod düzenlemelerinde, kodların nasıl yerleştirileceğini hassas şekilde tarif etsin
