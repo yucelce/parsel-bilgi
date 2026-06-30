@@ -5,32 +5,15 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
-// Haritayı mevcut parsellerin sınırlarına otomatik odaklayan yardımcı bileşen
-function FitBoundsComponent({ parcels }: { parcels: any[] }) {
+// Haritayı verilen sınırlara otomatik odaklayan yardımcı bileşen
+function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
   const map = useMap();
   
   useEffect(() => {
-    if (parcels.length > 0) {
-      const latLngs: L.LatLng[] = [];
-      
-      parcels.forEach((parcel) => {
-        if (parcel.geometry && parcel.geometry.type === 'Polygon') {
-          // GeoJSON formatında koordinatlar [lng, lat] şeklindedir. 
-          // Bunları Leaflet LatLng nesnesine çevirip sınır belirleme dizisine ekliyoruz.
-          parcel.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
-            latLngs.push(L.latLng(lat, lng));
-          });
-        }
-      });
-
-      if (latLngs.length > 0) {
-        // Tüm koordinatları içine alacak en optimum harita sınırını (bounnd) hesaplıyoruz
-        const bounds = L.latLngBounds(latLngs);
-        // Haritayı bu sınırlara, kenarlardan 50px pay bırakarak otomatik kaydır ve yakınlaştır
-        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
-      }
+    if (bounds && bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
     }
-  }, [parcels, map]);
+  }, [bounds, map]);
 
   return null;
 }
@@ -39,19 +22,33 @@ export default function ParcelMap() {
   const defaultCenter: [number, number] = [39.92077, 32.85411]; 
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Haritanın odaklanacağı sınırları tutan State
+  const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
 
-  // --- YENİ EKLENEN STATE VE REF'LER ---
   const [uploading, setUploading] = useState<boolean>(false); 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // --- DEĞİŞTİRİLEN VERİ ÇEKME MOTORU ---
-  // Tekrar çağrılabilmesi için fetch işlemini bir fonksiyona aldık
-  const fetchParcels = () => {
+  const fetchParcels = (isInitialLoad = false) => {
     fetch('/api/parcels')
       .then((res) => res.json())
       .then((data) => {
         setParcels(data);
         setLoading(false);
+
+        if (isInitialLoad && data.length > 0) {
+          const latLngs: L.LatLng[] = [];
+          data.forEach((parcel: any) => {
+            if (parcel.geometry && parcel.geometry.type === 'Polygon') {
+              parcel.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
+                latLngs.push(L.latLng(lat, lng));
+              });
+            }
+          });
+          if (latLngs.length > 0) {
+            setMapBounds(L.latLngBounds(latLngs));
+          }
+        }
       })
       .catch((err) => {
         console.error('Parseller yüklenirken hata oluştu:', err);
@@ -60,20 +57,18 @@ export default function ParcelMap() {
   };
 
   useEffect(() => {
-    fetchParcels();
+    fetchParcels(true); 
   }, []);
 
-  // Yeni çizim tamamlandığında tetiklenen fonksiyon (Önceki adımdan korundu)
   const handleCreated = (e: any) => {
     const { layerType, layer } = e;
     if (layerType === 'polygon') {
       const geojsonData = layer.toGeoJSON();
       console.log('Yeni Çizilen Parsel Geometrisi:', geojsonData.geometry);
-      // Buraya ileride yeni parsel kayıt formu (Modal) açma fonksiyonu eklenecek
     }
   };
 
-  // --- YENİ EKLENEN DOSYA YÜKLEME FONKSİYONU ---
+  // GELİŞTİRİLMİŞ AKILLI DOSYA YÜKLEME VE HATA BİLDİRİM MOTORU
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -81,61 +76,111 @@ export default function ParcelMap() {
     setUploading(true);
     const reader = new FileReader();
 
-    // Dosya okunduğunda çalışacak asenkron blok
     reader.onload = async (event) => {
       try {
-        const geojsonData = JSON.parse(event.target?.result as string);
+        // 1. JSON Format Kontrolü (Dosya bozuk mu?)
+        let geojsonData;
+        try {
+          geojsonData = JSON.parse(event.target?.result as string);
+        } catch (parseError) {
+          throw new Error("Dosya geçerli bir JSON formatında değil. Lütfen dosyanın bozuk olmadığından emin olun.");
+        }
+
         let featuresToUpload: any[] = [];
 
-        // TKGM ve standart CBS araçları genelde FeatureCollection üretir
+        // 2. Akıllı Format Algılama (Standart GeoJSON veya Ham Geometri)
+        if (!geojsonData || typeof geojsonData !== 'object') {
+          throw new Error('Dosya içeriği okunabilir bir veri içermiyor.');
+        }
+
         if (geojsonData.type === 'FeatureCollection' && Array.isArray(geojsonData.features)) {
+          // TKGM veya QGIS gibi sistemlerin standart çıktısı
           featuresToUpload = geojsonData.features;
         } else if (geojsonData.type === 'Feature') {
+          // Sadece tek bir parsel verisi (Feature)
           featuresToUpload = [geojsonData];
-        } else if (geojsonData.coordinates) {
-          // Sadece ham geometri nesnesi yüklenirse sarmala
+        } else if (geojsonData.type === 'Polygon' || geojsonData.type === 'MultiPolygon') {
+          // Sadece ham koordinat geometrisi yüklenmişse (Doğal format) bunu sarmala
           featuresToUpload = [{ type: 'Feature', geometry: geojsonData, properties: {} }];
+        } else if (Array.isArray(geojsonData)) {
+           throw new Error("Dosya sadece dizi (Array) içeriyor. Lütfen geçerli bir GeoJSON nesnesi (.geojson) yükleyin.");
+        } else {
+          // Ne olduğunu anlayamadığımız bir JSON objesi ise
+          throw new Error('Desteklenmeyen format. Dosyanızın tipi "FeatureCollection", "Feature" veya "Polygon" olmalıdır.');
         }
 
+        // 3. İçerik Boşluk Kontrolü
         if (featuresToUpload.length === 0) {
-          alert('Geçerli bir GeoJSON parsel verisi bulunamadı.');
-          setUploading(false);
-          return;
+          throw new Error('Dosya formatı doğru görünse de içerisinde işlenebilecek hiçbir parsel (Feature) bulunamadı.');
         }
 
-        // Dosya içindeki tüm parselleri döngüyle backend'e asenkron post ediyoruz
+        const uploadedLatLngs: L.LatLng[] = [];
+        let successCount = 0;
+
+        // 4. Verileri Veritabanına Yazma
         for (const feature of featuresToUpload) {
-          // TKGM properties altındaki PARSEL_NO özniteliğini veya genel adı yakalamaya çalışıyoruz
-          const parcelName = feature.properties?.name || 
-                             feature.properties?.PARSEL_NO || 
-                             `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
+          // Geometri verisi yoksa bu kaydı atla
+          if (!feature.geometry) continue;
+
+          const props = feature.properties || {};
+          
+          let parcelName = props.name;
+          if (!parcelName && props.Ilce && props.Mahalle && props.Ada && props.ParselNo) {
+            parcelName = `${props.Ilce}/${props.Mahalle} - Ada: ${props.Ada}, Parsel: ${props.ParselNo}`;
+          } else if (!parcelName) {
+            parcelName = props.PARSEL_NO ? `Parsel: ${props.PARSEL_NO}` : `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
+          }
+
+          if (feature.geometry.type === 'Polygon') {
+            feature.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
+              uploadedLatLngs.push(L.latLng(lat, lng));
+            });
+          } else if (feature.geometry.type === 'MultiPolygon') {
+             feature.geometry.coordinates.forEach((polygon: any[]) => {
+                polygon[0].forEach(([lng, lat]: [number, number]) => {
+                   uploadedLatLngs.push(L.latLng(lat, lng));
+                });
+             });
+          }
 
           await fetch('/api/parcels', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               name: parcelName,
-              geometry: feature.geometry, // Backend'deki ST_GeomFromGeoJSON doğrudan bunu bekler
-              ownerName: feature.properties?.owner_name || null,
+              geometry: feature.geometry,
+              ownerName: props.Nitelik || props.owner_name || null,
               ownerPhone: null,
               ownerEmail: null,
               status: 'Aktif'
             })
           });
+          successCount++;
         }
 
-        alert(`${featuresToUpload.length} adet parsel başarıyla veritabanına işlendi ve haritaya eklendi.`);
-        fetchParcels(); // Haritada hemen görünmesi için listeyi yenile
-      } catch (err) {
-        console.error('GeoJSON işleme hatası:', err);
-        alert('Dosya formatı hatalı. Lütfen geçerli bir .geojson veya .json dosyası seçin.');
+        if (successCount === 0) {
+           throw new Error('Parsellerin geometrisi çıkarılamadı (Sadece nokta/line yüklemiş olabilirsiniz). Sadece Poligon (Alan) desteklenmektedir.');
+        }
+
+        // 5. Başarılı Yükleme Sonrası Zoom
+        if (uploadedLatLngs.length > 0) {
+          setMapBounds(L.latLngBounds(uploadedLatLngs));
+        }
+
+        alert(`${successCount} adet parsel başarıyla işlendi ve haritaya eklendi.`);
+        fetchParcels(false); 
+        
+      } catch (err: any) {
+        // HATA YAKALAMA VE BİLGİLENDİRME EKRANI
+        console.error('GeoJSON İşleme Hatası:', err);
+        alert(`❌ PARSEL YÜKLEME BAŞARISIZ!\n\nSebep: ${err.message}\n\nÇözüm: TKGM'den indirdiğiniz orijinal .json dosyasını değiştirmeden yüklemeyi deneyin.`);
       } finally {
         setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = ''; // Aynı dosya tekrar seçilebilsin diye temizle
+        if (fileInputRef.current) fileInputRef.current.value = ''; 
       }
     };
 
-    reader.readAsText(file); // Dosyayı string olarak okumaya başla
+    reader.readAsText(file);
   };
 
   if (loading) {
@@ -144,10 +189,9 @@ export default function ParcelMap() {
 
   return (
     <div className="w-full flex flex-col gap-2">
-      {/* --- GÖRSEL BUTON VE GİZLİ INPUT EKLEDİK (Tailwind V4 Uyumlu) --- */}
-      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-xs">
+      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-sm">
         <span className="text-sm text-gray-600 font-medium">
-          TKGM'den indirdiğiniz veya ürettiğiniz <strong>.geojson</strong> dosyalarını doğrudan sisteme yükleyebilirsiniz.
+          TKGM'den indirdiğiniz veya ürettiğiniz <strong>.geojson / .json</strong> dosyalarını doğrudan sisteme yükleyebilirsiniz.
         </span>
         <div>
           <input 
@@ -161,7 +205,7 @@ export default function ParcelMap() {
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
             className={`px-4 py-2 rounded-md font-medium text-sm text-white transition-all shadow-sm ${
-              uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-98'
+              uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-95'
             }`}
           >
             {uploading ? 'Parseller İşleniyor...' : 'GeoJSON Dosyası Yükle'}
@@ -169,87 +213,80 @@ export default function ParcelMap() {
         </div>
       </div>
 
-      {/* Harita buradaki div'in altında temiz bir şekilde çalışmaya devam edecek */}
       <div style={{ height: '600px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
         <MapContainer 
           center={defaultCenter}
-        zoom={6} 
-        style={{ height: '100%', width: '100%' }}
-      >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
-
-        {/* Otomatik Odaklanma Motoru */}
-        <FitBoundsComponent parcels={parcels} />
-
-        {/* Mevcut Parselleri Haritaya Basma ve Sol Tık Bilgi Penceresi */}
-        {parcels.map((parcel) => {
-          if (!parcel.geometry || !parcel.geometry.coordinates) return null;
-          
-          // GeoJSON formatındaki [lng, lat] yapısını Leaflet'in beklediği [lat, lng] yapısına dönüştürüyoruz
-          const positions = parcel.geometry.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]);
-
-          return (
-            <Polygon
-              key={parcel.id}
-              positions={positions}
-              pathOptions={{
-                color: '#1e3a8a',      // Parsel çizgi rengi (Koyu Mavi)
-                fillColor: '#3b82f6',  // Parsel iç dolgu rengi (Mavi)
-                fillOpacity: 0.35,     // Saydamlık derecesi
-                weight: 2              // Çizgi kalınlığı
-              }}
-            >
-              {/* Parsele sol tıklandığında açılacak OSB Bilgi Kartı */}
-              <Popup minWidth={260}>
-                <div className="font-sans text-sm p-1">
-                  <div className="border-b pb-2 mb-2">
-                    <h3 className="font-bold text-base text-blue-950 m-0 mb-1">{parcel.name || 'İsimsiz Parsel'}</h3>
-                    <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
-                      Durum: {parcel.status || 'Aktif'}
-                    </span>
-                  </div>
-                  <div className="space-y-1.5 text-gray-700">
-                    <p className="m-0"><strong>Malik (Sahip):</strong> {parcel.owner_name || 'Belirtilmemiş'}</p>
-                    <p className="m-0"><strong>Telefon:</strong> {parcel.owner_phone || 'Belirtilmemiş'}</p>
-                    <p className="m-0"><strong>E-posta:</strong> {parcel.owner_email || 'Belirtilmemiş'}</p>
-                    {/* İleride buraya Kiracı bilgisi de schema.ts'ye eklenerek kolayca basılabilir */}
-                  </div>
-                </div>
-              </Popup>
-            </Polygon>
-          );
-        })}
-
-        {/* Çizim Araçları Katmanı (Yeni parsel eklemek için) */}
-        <FeatureGroup>
-          <EditControl
-            position="topright"
-            onCreated={handleCreated}
-            draw={{
-              rectangle: false,
-              circle: false,
-              circlemarker: false,
-              marker: false,
-              polyline: false,
-              polygon: {
-                allowIntersection: false,
-                drawError: {
-                  color: '#e1e100',
-                  message: '<strong>Hata:</strong> Parsel sınırları kendi içinde kesişemez!'
-                },
-                shapeOptions: {
-                  color: '#2563eb',
-                  fillOpacity: 0.5
-                }
-              }
-            }}
+          zoom={6} 
+          style={{ height: '100%', width: '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
-        </FeatureGroup>
-      </MapContainer>
-    </div>
+
+          <MapBoundsController bounds={mapBounds} />
+
+          {parcels.map((parcel) => {
+            if (!parcel.geometry || !parcel.geometry.coordinates) return null;
+            
+            const positions = parcel.geometry.coordinates[0].map(([lng, lat]: [number, number]) => [lat, lng]);
+
+            return (
+              <Polygon
+                key={parcel.id}
+                positions={positions}
+                pathOptions={{
+                  color: '#1e3a8a',
+                  fillColor: '#3b82f6',
+                  fillOpacity: 0.35,
+                  weight: 2
+                }}
+              >
+                <Popup minWidth={260}>
+                  <div className="font-sans text-sm p-1">
+                    <div className="border-b pb-2 mb-2">
+                      <h3 className="font-bold text-base text-blue-950 m-0 mb-1">{parcel.name || 'İsimsiz Parsel'}</h3>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full font-medium">
+                        Durum: {parcel.status || 'Aktif'}
+                      </span>
+                    </div>
+                    <div className="space-y-1.5 text-gray-700">
+                      <p className="m-0"><strong>Nitelik/Sahip:</strong> {parcel.owner_name || 'Belirtilmemiş'}</p>
+                      <p className="m-0"><strong>Telefon:</strong> {parcel.owner_phone || 'Belirtilmemiş'}</p>
+                      <p className="m-0"><strong>E-posta:</strong> {parcel.owner_email || 'Belirtilmemiş'}</p>
+                    </div>
+                  </div>
+                </Popup>
+              </Polygon>
+            );
+          })}
+
+          <FeatureGroup>
+            <EditControl
+              position="topright"
+              onCreated={handleCreated}
+              draw={{
+                rectangle: false,
+                circle: false,
+                circlemarker: false,
+                marker: false,
+                polyline: false,
+                polygon: {
+                  allowIntersection: false,
+                  drawError: {
+                    color: '#e1e100',
+                    message: '<strong>Hata:</strong> Parsel sınırları kendi içinde kesişemez!'
+                  },
+                  shapeOptions: {
+                    color: '#2563eb',
+                    fillOpacity: 0.5
+                  }
+                }
+              }}
+            />
+          </FeatureGroup>
+        </MapContainer>
+      </div>
     </div>
   );
 }

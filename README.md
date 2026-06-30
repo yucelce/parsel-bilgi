@@ -31,3 +31,5 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
 
    Programı web editörde geliştiriyorum, package.json kodlarını maneul eklemeliyim
    vercel ile geliştiriyoruz.
+
+   program ai lar ile geliştirileceği için mümkün mertebe ayrık sayfalarla çalışılması iyi olur
