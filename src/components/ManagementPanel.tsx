@@ -240,7 +240,6 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
                 <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
                 
                 {/* ---------------- BURADAN İTİBAREN YAPIŞTIRIN ---------------- */}

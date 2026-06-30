@@ -430,6 +430,7 @@ function ZoomListener() {
           })}
 
           <FeatureGroup>
+            {/* @ts-ignore: react-leaflet-draw tip tanımlamaları React 18+ ile uyumsuz olduğu için yoksayılıyor */}
             <EditControl
               position="topright"
               onCreated={handleCreated}
