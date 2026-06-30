@@ -139,6 +139,33 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
     }
   };
 
+  // src/components/ManagementPanel.tsx içerisine eklenecek fonksiyonlar
+
+  const deleteStructure = async (id: string, name: string) => {
+    if (!window.confirm(`'${name}' isimli yapıyı silmek istediğinize emin misiniz? (İçindeki tüm bölümler silinir!)`)) return;
+    try {
+      const res = await fetch(`/api/structures/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchParcels();
+    } catch (err) { console.error(err); }
+  };
+
+  const deleteUnit = async (id: string, name: string) => {
+    if (!window.confirm(`'${name}' isimli bağımsız bölümü silmek istediğinize emin misiniz?`)) return;
+    try {
+      const res = await fetch(`/api/independent-units/${id}`, { method: 'DELETE' });
+      if (res.ok) fetchParcels();
+    } catch (err) { console.error(err); }
+  };
+
+  const removeOccupant = async (linkId: string, type: 'unit' | 'parcel') => {
+    if (!window.confirm('Bu kişiyi/firmayı buradan kaldırmak istediğinize emin misiniz?')) return;
+    try {
+      const endpoint = type === 'unit' ? `/api/unit-entities/${linkId}` : `/api/parcel-entities/${linkId}`;
+      const res = await fetch(endpoint, { method: 'DELETE' });
+      if (res.ok) fetchParcels();
+    } catch (err) { console.error(err); }
+  };
+
   // --- ATAMA MODAL YÖNETİMİ ---
   const openAssignModal = (type: 'parcel' | 'unit', targetId: string) => {
     setAssignTarget({ type, id: targetId });
@@ -419,30 +446,35 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
               <div className="flex-1 overflow-y-auto p-4 space-y-6 custom-scrollbar bg-[#1e1e1e]">
                 
                 {/* BÖLÜM 1: ARSA MALİKLERİ */}
-                <div className="bg-[#252526] border border-[#3c3c3c] rounded-lg p-4 shadow-sm">
-                  <div className="flex justify-between items-center mb-3 border-b border-[#3c3c3c] pb-2">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
-                      <Users size={16} /> Arsa Malikleri & Tahsis Bilgileri
+                <div className="bg-[#1e1e1e] border border-[#444] rounded-sm p-0 shadow-sm">
+                  <div className="flex justify-between items-center p-2 bg-[#2d2d2d] border-b border-[#444]">
+                    <h4 className="text-[10px] font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                      <Users size={14} /> Arsa Malikleri Bilgileri
                     </h4>
                     <button 
                       onClick={() => openAssignModal('parcel', selectedParcel.id)} 
-                      className="flex items-center gap-1 bg-purple-600/20 text-purple-400 border border-purple-500/30 hover:bg-purple-600 hover:text-white px-2 py-1 rounded text-[11px] font-bold transition-colors cursor-pointer"
+                      className="flex items-center gap-1 hover:bg-purple-600/30 text-purple-400 px-1.5 py-0.5 rounded text-[10px] transition-colors cursor-pointer"
                     >
-                      <Plus size={12} /> Malik Ata
+                      <Plus size={12} /> Malik Ekle
                     </button>
                   </div>
                   
-                  <div className="space-y-1.5">
+                  <div className="p-2 space-y-1">
                     {(!selectedParcel.owners || selectedParcel.owners.length === 0) ? (
-                      <p className="text-xs text-gray-500 italic text-center py-2 bg-[#1e1e1e] rounded border border-[#2d2d2d]">Arsada henüz mülkiyet tanımlaması yapılmamış.</p>
+                      <p className="text-[10px] text-gray-500 italic text-center py-2">Kayıtlı malik bulunamadı.</p>
                     ) : (
                       selectedParcel.owners.map((owner: any) => (
-                        <div key={owner.id} className="bg-[#1e1e1e] border border-[#2d2d2d] rounded px-3 py-2 text-xs flex justify-between items-center font-mono">
-                          <div>
-                            <span className="font-bold text-gray-200">{owner.name}</span>
-                            <span className="ml-2 text-[10px] text-gray-500 bg-[#2d2d2d] px-1.5 py-0.5 rounded">({owner.type})</span>
+                        <div key={owner.id} className="group bg-[#252526] border border-[#333] hover:border-[#555] p-1.5 flex justify-between items-center font-mono text-[10px] transition-colors">
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-200">{owner.name}</span>
+                            <span className="text-gray-500">[{owner.type}]</span>
                           </div>
-                          <span className="bg-purple-500/10 text-purple-400 border border-purple-500/20 px-2 py-0.5 rounded font-bold">HİSSE: %{owner.share_percentage}</span>
+                          <div className="flex items-center gap-3">
+                            <span className="text-purple-400">HİSSE: %{owner.share_percentage}</span>
+                            <button onClick={() => removeOccupant(owner.id, 'parcel')} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -450,91 +482,95 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
                 </div>
                 
                 {/* BÖLÜM 2: YAPILAR VE BAĞIMSIZ BÖLÜMLER (MİMARİ HİYERARŞİ) */}
-                <div>
-                  <div className="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-1.5">
-                    <Building size={16} /> Fiziksel Yapılar ve Bağımsız Birim Kütüphanesi
+                <div className="mt-4">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5 border-b border-[#444] pb-1">
+                    <Building size={14} /> Fiziksel Yapı Hiyerarşisi
                   </div>
 
                   {selectedParcel.structures?.length === 0 ? (
-                    <div className="text-center text-gray-500 text-xs py-12 bg-[#252526] rounded-lg border border-dashed border-[#3c3c3c]">
-                      Bu parsel sınırları içinde henüz bir bina/yapı çizilmedi veya eklenmedi.
+                    <div className="text-center text-gray-600 text-[10px] py-8 bg-[#1e1e1e] border border-dashed border-[#444]">
+                      Geometri içerisinde tanımlı yapı yok.
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-2">
                       {selectedParcel.structures.map((structure: any) => (
-                        <div key={structure.id} className="bg-[#252526] border border-[#3c3c3c] rounded-lg overflow-hidden shadow-md">
+                        <div key={structure.id} className="bg-[#1e1e1e] border border-[#444] rounded-sm overflow-hidden">
                           
                           {/* Bina Başlık Alanı */}
-                          <div className="flex justify-between items-center p-3 bg-[#2d2d2d] border-b border-[#3c3c3c]">
-                            <h5 className="font-bold text-xs font-mono text-blue-400 flex items-center gap-1.5">
-                              <Building size={14} /> {structure.name}
-                            </h5>
+                          <div className="flex justify-between items-center p-1.5 bg-[#252526] border-b border-[#444] group">
+                            <div className="flex items-center gap-2">
+                              <h5 className="font-bold text-[11px] font-mono text-blue-400 flex items-center gap-1.5">
+                                <Building size={12} /> {structure.name}
+                              </h5>
+                              <button onClick={() => deleteStructure(structure.id, structure.name)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Yapıyı Sil">
+                                <Trash2 size={12} />
+                              </button>
+                            </div>
                             <button 
                               onClick={() => addIndependentUnit(structure.id, structure.name)} 
-                              className="flex items-center gap-1 bg-[#1e1e1e] hover:bg-blue-600 hover:text-white text-gray-300 border border-[#444] px-2.5 py-1 rounded text-[11px] font-bold transition-all cursor-pointer"
+                              className="flex items-center gap-1 hover:bg-[#333] text-gray-300 px-1.5 py-0.5 rounded text-[10px] transition-all cursor-pointer"
                             >
-                              <Plus size={12} /> İç Kapı/Birim Ekle
+                              <Plus size={10} /> İç Birim Ekle
                             </button>
                           </div>
                           
                           {/* Binanın İçindeki Bağımsız Bölümler */}
-                          <div className="p-3 space-y-3 bg-[#1e1e1e]">
+                          <div className="p-1.5 space-y-1.5 bg-[#1e1e1e]">
                             {(!structure.units || structure.units.length === 0) ? (
-                              <p className="text-[11px] text-gray-600 italic text-center py-2">Binaya ait iç dükkan/atölye/ofis kaydı bulunmuyor.</p>
+                              <p className="text-[10px] text-gray-600 italic pl-6">İç birim tanımlanmamış.</p>
                             ) : (
                               structure.units.map((unit: any) => (
-                                <div key={unit.id} className="bg-[#222224] border border-[#3c3c3c] rounded p-3 text-xs flex flex-col gap-2.5 border-l-4 border-l-blue-600">
+                                <div key={unit.id} className="ml-4 border-l border-dashed border-[#555] pl-2 py-1 group/unit">
                                   
                                   {/* Bağımsız Bölüm Bilgisi */}
-                                  <div className="flex justify-between items-center pb-1.5 border-b border-[#333]">
-                                    <div className="flex items-center gap-1.5 font-mono">
-                                      <DoorOpen size={14} className="text-gray-400" />
-                                      <span className="font-bold text-gray-200">{unit.name}</span>
-                                      <span className="text-blue-400 font-bold bg-blue-500/10 px-1.5 py-0.5 rounded text-[10px]">KAPI NO: {unit.unit_no}</span>
+                                  <div className="flex justify-between items-center mb-1">
+                                    <div className="flex items-center gap-1.5 font-mono text-[10px]">
+                                      <DoorOpen size={12} className="text-gray-400" />
+                                      <span className="font-bold text-gray-300">{unit.name}</span>
+                                      <span className="text-blue-500">[{unit.unit_no}]</span>
+                                      <button onClick={() => deleteUnit(unit.id, unit.name)} className="text-gray-600 hover:text-red-500 opacity-0 group-hover/unit:opacity-100 transition-opacity ml-1" title="Birimi Sil">
+                                        <Trash2 size={11} />
+                                      </button>
                                     </div>
                                     <button 
                                       onClick={() => openAssignModal('unit', unit.id)} 
-                                      className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-[10px] font-bold transition-colors cursor-pointer"
+                                      className="flex items-center gap-1 text-blue-400 hover:bg-blue-900/30 px-1.5 py-0.5 rounded text-[9px] transition-colors cursor-pointer"
                                     >
-                                      <Plus size={10} /> İşletme/Kiracı Ata
+                                      <Plus size={10} /> İşletme Ata
                                     </button>
                                   </div>
 
-                                  {/* Bağımsız Bölüm Sakinleri / Firmalar */}
+                                  {/* Bağımsız Bölüm Sakinleri */}
                                   {(!unit.occupants || unit.occupants.length === 0) ? (
-                                    <p className="text-[11px] text-gray-500 italic m-0 flex items-center gap-1"><AlertTriangle size={12} className="text-amber-500"/> Bu bağımsız bölüm şu an BOŞ durumda.</p>
+                                    <p className="text-[9px] text-gray-600 italic m-0 flex items-center gap-1"><AlertTriangle size={10} className="text-amber-700"/> Boş</p>
                                   ) : (
-                                    <div className="space-y-2">
+                                    <div className="space-y-1 mt-1">
                                       {unit.occupants.map((occ: any) => (
-                                        <div key={occ.id} className="bg-[#1a1a1c] border border-[#2d2d2d] rounded p-2.5 font-mono">
-                                          <div className="flex justify-between items-center flex-wrap gap-2">
-                                            <div>
-                                              <span className="font-bold text-gray-200 text-xs">{occ.name}</span>
-                                              <span className={`ml-2 text-[9px] px-1.5 py-0.5 rounded font-bold uppercase ${occ.role === 'Malik' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'}`}>
+                                        <div key={occ.id} className="bg-[#252526] border border-[#333] p-1.5 font-mono group/occ flex flex-col gap-1 hover:border-[#555] transition-colors">
+                                          <div className="flex justify-between items-center">
+                                            <div className="flex items-center gap-1.5">
+                                              <span className="text-gray-300 text-[10px]">{occ.name}</span>
+                                              <span className={`text-[8px] px-1 py-0.5 border ${occ.role === 'Malik' ? 'text-purple-400 border-purple-500/30' : 'text-orange-400 border-orange-500/30'}`}>
                                                 {occ.role}
                                               </span>
                                             </div>
-                                            <div className={`flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded border ${occ.has_work_license ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
-                                              {occ.has_work_license ? <CheckCircle2 size={12}/> : <AlertTriangle size={12}/>}
-                                              Ruhsat: {occ.has_work_license ? 'AKTİF' : 'YOK'}
+                                            <div className="flex items-center gap-2">
+                                              <div className={`flex items-center gap-1 text-[9px] px-1 py-0.5 border ${occ.has_work_license ? 'text-green-400 border-green-500/20' : 'text-red-400 border-red-500/20'}`}>
+                                                {occ.has_work_license ? 'RUHSATLI' : 'RUHSATSIZ'}
+                                              </div>
+                                              <button onClick={() => removeOccupant(occ.id, 'unit')} className="text-gray-600 hover:text-red-500 opacity-0 group-hover/occ:opacity-100 transition-opacity">
+                                                <X size={12} />
+                                              </button>
                                             </div>
-                                          </div>
-                                          
-                                          {/* İletişim Satırı */}
-                                          <div className="flex gap-4 mt-2 pt-1.5 border-t border-[#262628] text-[11px] text-gray-400">
-                                            <div className="flex items-center gap-1"><Phone size={11} className="text-gray-600"/> {occ.phone || 'Girilmedi'}</div>
-                                            <div className="flex items-center gap-1"><Mail size={11} className="text-gray-600"/> {occ.email || 'Girilmedi'}</div>
                                           </div>
                                         </div>
                                       ))}
                                     </div>
                                   )}
-
                                 </div>
                               ))
                             )}
                           </div>
-
                         </div>
                       ))}
                     </div>

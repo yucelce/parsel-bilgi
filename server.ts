@@ -170,6 +170,41 @@ app.delete('/api/parcels/:id', async (req, res) => {
   } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
+app.delete('/api/structures/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`DELETE FROM structures WHERE id = ${id}`);
+    res.status(200).json({ message: 'Yapı başarıyla silindi' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// BAĞIMSIZ BÖLÜM SİLME
+app.delete('/api/independent-units/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`DELETE FROM independent_units WHERE id = ${id}`);
+    res.status(200).json({ message: 'Bağımsız bölüm başarıyla silindi' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// BAĞIMSIZ BÖLÜM - KİRACI/MALİK İLİŞKİSİNİ SİLME (Birimden çıkarma)
+app.delete('/api/unit-entities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`DELETE FROM unit_entities WHERE id = ${id}`);
+    res.status(200).json({ message: 'Paydaş birimden başarıyla çıkarıldı' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// PARSEL - MALİK İLİŞKİSİNİ SİLME (Arsa Hissedarını çıkarma)
+app.delete('/api/parcel-entities/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await db.execute(sql`DELETE FROM parcel_entities WHERE id = ${id}`);
+    res.status(200).json({ message: 'Arsa maliki başarıyla çıkarıldı' });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
 // YAPI (BİNA) EKLEME
 app.post('/api/structures', async (req, res) => {
   try {
