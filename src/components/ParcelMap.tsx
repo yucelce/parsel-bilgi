@@ -25,6 +25,22 @@ interface ParcelMapProps {
 }
 
 export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
+  // ParcelMap bileşeni içine eklenecek yeni state
+const [currentZoom, setCurrentZoom] = useState<number>(6); // Varsayılan zoom seviyesi
+
+// Zoom değişikliklerini dinleyen yardımcı bileşen
+function ZoomListener() {
+  const map = useMap();
+  useEffect(() => {
+    setCurrentZoom(map.getZoom()); // İlk yüklemede zoomu al
+    const onZoomEnd = () => setCurrentZoom(map.getZoom());
+    map.on('zoomend', onZoomEnd);
+    return () => {
+      map.off('zoomend', onZoomEnd);
+    };
+  }, [map]);
+  return null;
+}
   const defaultCenter: [number, number] = [39.92077, 32.85411]; 
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -340,6 +356,7 @@ export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
           </LayersControl>
 
           <MapBoundsController bounds={mapBounds} />
+          <ZoomListener /> {/* YENİ EKLENEN */}
 
           {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM - YENİ ÖZELLİKLERLE BİRLİKTE */}
           {parcels.map((parcel) => {
@@ -367,8 +384,12 @@ export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
                 }}
               >
                 {/* HARİTA ÜZERİNDE ORTADA GÖRÜNECEK KALICI ETİKET */}
-                {labelText && (
-                  <Tooltip permanent direction="center" className="parcel-center-label">
+                {labelText && currentZoom >= 14 && ( // Sadece zoom 14 ve üzeriyse göster
+                  <Tooltip 
+                    permanent 
+                    direction="center" 
+                    className={`parcel-center-label zoom-level-${currentZoom}`}
+                  >
                     {labelText}
                   </Tooltip>
                 )}

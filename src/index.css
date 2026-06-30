@@ -1,19 +1,30 @@
 @import "tailwindcss";
 
-/* Harita İçi Merkez Etiket (Tooltip) Stilleri */
 .parcel-center-label {
   background-color: transparent !important;
   border: none !important;
   box-shadow: none !important;
-  color: #ffffff; /* Yazı rengi beyaz */
+  color: #ffffff;
   font-weight: 700;
-  font-size: 0.9rem;
-  /* Yazının harita üzerinde okunabilmesi için etrafına siyah CAD gölgesi */
   text-shadow: 1px 1px 2px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9), 1px -1px 2px rgba(0,0,0,0.9), -1px 1px 2px rgba(0,0,0,0.9);
-  white-space: nowrap;
+  white-space: normal; /* Uzun metinlerin alt satıra geçmesine izin ver */
+  text-align: center;
+  word-break: break-word; /* Kelime çok uzunsa böl */
+  max-width: 80%; /* Parsel genişliğinin %80'ini aşmasın */
+  padding: 0 !important;
+  line-height: 1.1;
+  pointer-events: none; /* Etiketlere tıklanmasını engelle (altındaki parsele tıklanabilsin) */
 }
 
 /* Standart Tooltip okunu (üçgenini) gizle */
 .parcel-center-label::before {
   display: none !important;
 }
+
+/* Zoom Seviyesine Göre Dinamik Yazı Boyutları */
+.zoom-level-14 { font-size: 0.6rem; }
+.zoom-level-15 { font-size: 0.7rem; }
+.zoom-level-16 { font-size: 0.8rem; }
+.zoom-level-17 { font-size: 0.9rem; }
+.zoom-level-18 { font-size: 1rem; }
+.zoom-level-19 { font-size: 1.1rem; }
