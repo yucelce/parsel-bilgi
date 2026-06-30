@@ -129,46 +129,61 @@ async function initDatabase() {
 initDatabase();
 
 // TÜM VERİLERİ İÇ İÇE (NESTED) GETİR - GÜNCELLENDİ
+// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR - İMAR VE RUHSAT EKLENTİLİ
 app.get('/api/parcels', async (req, res) => {
   try {
-    const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel FROM parcels`);
+    const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel, zoning_status, area_m2 FROM parcels`);
     const structuresRes = await db.execute(sql`SELECT * FROM structures`);
     const unitsRes = await db.execute(sql`SELECT * FROM independent_units ORDER BY unit_no ASC`);
     const entitiesRes = await db.execute(sql`SELECT * FROM entities`);
     const unitEntitiesRes = await db.execute(sql`SELECT * FROM unit_entities`); 
-    const parcelEntitiesRes = await db.execute(sql`SELECT * FROM parcel_entities`); 
+    const parcelEntitiesRes = await db.execute(sql`SELECT * FROM parcel_entities`);
+    
+    // YENİ: İmar ve Ruhsat verilerini veritabanından çek
+    const zoningRes = await db.execute(sql`SELECT * FROM zoning_details`);
+    const licensesRes = await db.execute(sql`SELECT * FROM licenses`);
 
     const formattedResult = parcelsRes.map((p: any) => {
-      // 1. Doğrudan Parselin Sahiplerini (Arsa Maliklerini) Bul
+      // Parsel Sahipleri (Arsa Malikleri)
       const pLinks = parcelEntitiesRes.filter((pe: any) => pe.parcel_id === p.id);
       const pOwners = pLinks.map((link: any) => {
         const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
         return { ...entityData, entity_id: entityData.id, id: link.id, share_percentage: link.share_percentage };
       });
+      
+      // YENİ: Parselin İmar Detaylarını Eşleştir
+      const pZoningDetails = zoningRes.find((z: any) => z.parcel_id === p.id) || null;
+      
+      // YENİ: Bu Parsele ait Ruhsat Başvurularını (Örn: Yapı Ruhsatı, İskan) Eşleştir
+      const pLicenses = licensesRes.filter((l: any) => l.reference_id === p.id && l.reference_type === 'parcel');
 
-      // 2. Binaları ve İçindeki Bağımsız Bölümleri Bul
+      // Binalar ve Bağımsız Bölümler
       const pStructures = structuresRes
         .filter((s: any) => s.parcel_id === p.id)
         .map((s: any) => {
-          // Binanın içindeki bağımsız bölümleri bul
           const sUnits = unitsRes.filter((u: any) => u.structure_id === s.id).map((u: any) => {
-             // Bağımsız bölümdeki kiracı/malikleri bul
              const uLinks = unitEntitiesRes.filter((ue: any) => ue.unit_id === u.id);
              const uOccupants = uLinks.map((link: any) => {
                 const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
                 return { ...entityData, entity_id: entityData.id, id: link.id, role: link.role, has_work_license: link.has_work_license };
              });
-             return { ...u, occupants: uOccupants };
+             
+             // YENİ: Bu Bağımsız Bölüme ait Ruhsat Başvurularını (Örn: GSM Ruhsatı) Eşleştir
+             const uLicenses = licensesRes.filter((l: any) => l.reference_id === u.id && l.reference_type === 'unit');
+             
+             return { ...u, occupants: uOccupants, licenses: uLicenses };
           });
 
-          return { ...s, units: sUnits }; // units (bağımsız bölümler) binaya eklendi
+          return { ...s, units: sUnits };
         });
 
       return {
         ...p,
         geometry: JSON.parse(p.geometry),
         structures: pStructures,
-        owners: pOwners 
+        owners: pOwners,
+        zoning_details: pZoningDetails, // İmar verisi parsele eklendi
+        licenses: pLicenses             // Ruhsat verisi parsele eklendi
       };
     });
     
@@ -177,7 +192,6 @@ app.get('/api/parcels', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
-
 // PARSEL SİLME VE EKLEME API'LERİ AYNI
 app.post('/api/parcels', async (req, res) => {
   try {
@@ -286,6 +300,47 @@ app.post('/api/unit-entities', async (req, res) => {
       res.status(201).json({ id });
     } catch (err: any) { res.status(500).json({ error: err.message }); }
   });
+
+  // YENİ: İMAR DURUMU PARAMETRELERİNİ KAYDET/GÜNCELLE
+app.post('/api/zoning-details', async (req, res) => {
+  try {
+    const { parcel_id, taks, kaks, hmax, front_setback, side_setback, rear_setback } = req.body;
+    
+    // Önce bu parsele ait kayıt var mı kontrol et
+    const existing = await db.execute(sql`SELECT id FROM zoning_details WHERE parcel_id = ${parcel_id}`);
+    
+    if (existing.length > 0) {
+      // Varsa Güncelle (Update)
+      await db.execute(sql`
+        UPDATE zoning_details 
+        SET taks=${taks}, kaks=${kaks}, hmax=${hmax}, front_setback=${front_setback}, side_setback=${side_setback}, rear_setback=${rear_setback}
+        WHERE parcel_id = ${parcel_id}
+      `);
+      res.status(200).json({ message: "İmar detayları güncellendi." });
+    } else {
+      // Yoksa Yeni Kayıt Oluştur (Insert)
+      const id = randomUUID();
+      await db.execute(sql`
+        INSERT INTO zoning_details (id, parcel_id, taks, kaks, hmax, front_setback, side_setback, rear_setback) 
+        VALUES (${id}, ${parcel_id}, ${taks}, ${kaks}, ${hmax}, ${front_setback}, ${side_setback}, ${rear_setback})
+      `);
+      res.status(201).json({ id });
+    }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+// YENİ: RUHSAT BAŞVURUSU (İŞ AKIŞI) OLUŞTUR
+app.post('/api/licenses', async (req, res) => {
+  try {
+    const { reference_id, reference_type, license_type, status, notes } = req.body;
+    const id = randomUUID();
+    await db.execute(sql`
+      INSERT INTO licenses (id, reference_id, reference_type, license_type, status, notes) 
+      VALUES (${id}, ${reference_id}, ${reference_type}, ${license_type}, ${status || 'Bekliyor'}, ${notes || null})
+    `);
+    res.status(201).json({ id });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
 
 if (process.env.NODE_ENV !== "production") {
   import('vite').then(async ({ createServer: createViteServer }) => {
