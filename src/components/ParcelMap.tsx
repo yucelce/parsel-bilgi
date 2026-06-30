@@ -250,5 +250,6 @@ export default function ParcelMap() {
         </FeatureGroup>
       </MapContainer>
     </div>
+    </div>
   );
 }
