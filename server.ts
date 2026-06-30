@@ -119,6 +119,17 @@ app.post('/api/parcels', async (req, res) => {
   }
 });
 
+app.delete('/api/parcels/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Veritabanından parseli sil (ON DELETE CASCADE olduğu için içindeki binalar ve kişiler de otomatik silinir)
+    await db.execute(sql`DELETE FROM parcels WHERE id = ${id}`);
+    res.status(200).json({ message: 'Parsel başarıyla silindi' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // YAPI (BİNA) EKLEME
 app.post('/api/structures', async (req, res) => {
   try {

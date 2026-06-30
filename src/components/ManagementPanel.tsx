@@ -1,6 +1,6 @@
 // src/components/ManagementPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Search, Plus, Building, Users, Phone, Mail, FileCheck } from 'lucide-react';
+import { X, Search, Plus, Building, Users, Phone, Mail, FileCheck, Trash2 } from 'lucide-react';
 
 export default function ManagementPanel({ onClose, initialEditId }: { onClose: () => void, initialEditId?: string | null }) {
   const [parcels, setParcels] = useState<any[]>([]);
@@ -29,6 +29,22 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
         }
       })
       .catch(err => console.error(err));
+  };
+
+  // YENİ EKLENEN: Parsel Silme Fonksiyonu
+  const deleteParcel = async (id: string) => {
+    if (!window.confirm('Bu parseli ve içindeki tüm bina/firma kayıtlarını kalıcı olarak silmek istediğinize emin misiniz?')) {
+      return;
+    }
+    
+    try {
+      await fetch(`/api/parcels/${id}`, { method: 'DELETE' });
+      setSelectedParcel(null); // Seçili parsel ekranını kapat
+      fetchParcels(); // Listeyi yenile
+    } catch (err) {
+      console.error("Silme hatası:", err);
+      alert("Parsel silinirken bir hata oluştu.");
+    }
   };
 
   useEffect(() => {
@@ -141,9 +157,17 @@ export default function ManagementPanel({ onClose, initialEditId }: { onClose: (
                 <h3 className="text-lg font-bold text-blue-400 flex items-center gap-2">
                   Seçili Parsel: {selectedParcel.ada_parsel || selectedParcel.name}
                 </h3>
-                <button onClick={addStructure} className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-semibold transition-colors shadow-sm">
-                  <Plus size={16} /> Yeni Bina/Yapı Ekle
-                </button>
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => deleteParcel(selectedParcel.id)} 
+                    className="flex items-center gap-1 bg-red-600/90 hover:bg-red-600 text-white px-3 py-1.5 rounded text-sm font-semibold transition-colors shadow-sm"
+                  >
+                    <Trash2 size={16} /> Sil
+                  </button>
+                  <button onClick={addStructure} className="flex items-center gap-1 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded text-sm font-semibold transition-colors shadow-sm">
+                    <Plus size={16} /> Yeni Bina/Yapı Ekle
+                  </button>
+                </div>
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-5 custom-scrollbar">
