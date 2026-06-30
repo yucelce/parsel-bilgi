@@ -25,53 +25,76 @@ async function initDatabase() {
   try {
     await db.execute(sql`CREATE EXTENSION IF NOT EXISTS postgis;`);
     
+    // 1. PARSELLER TABLOSU
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS parcels (
         id UUID PRIMARY KEY,
         name TEXT,
         geometry GEOMETRY,
-        owner_name TEXT,
-        owner_phone TEXT,
-        owner_email TEXT,
         status TEXT DEFAULT 'Aktif',
         date TIMESTAMP DEFAULT NOW(),
         ada_parsel TEXT,
+        zoning_status TEXT DEFAULT 'Sanayi',
+        area_m2 NUMERIC DEFAULT 0
+      );
+    `);
+    
+    // 2. YAPILAR/BİNALAR TABLOSU
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS structures (
+        id UUID PRIMARY KEY,
+        parcel_id UUID REFERENCES parcels(id) ON DELETE CASCADE,
+        name TEXT,
+        building_type TEXT
+      );
+    `);
+
+    // 3. FİRMA VE KİŞİLER TABLOSU (Malik/Kiracı)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS occupants (
+        id UUID PRIMARY KEY,
+        structure_id UUID REFERENCES structures(id) ON DELETE CASCADE,
+        name TEXT,
+        role TEXT,
+        phone TEXT,
+        email TEXT,
         has_work_license BOOLEAN DEFAULT false
       );
     `);
     
-    // Mevcut tabloya yeni sütunları güvenli şekilde ekler (Eğer önceden varsa hata vermez)
+    // Eskiden kalan sütunların hata vermemesi için güvenli eklemeler
     await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS ada_parsel TEXT;`);
-    await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS has_work_license BOOLEAN DEFAULT false;`);
     
-    console.log("PostgreSQL ve Tablo yapısı başarıyla hazırlandı.");
+    console.log("PostgreSQL İlişkisel Tablo yapısı başarıyla hazırlandı.");
   } catch (err: any) {
     console.error("Veritabanı otomatik kurulum hatası:", err.message);
   }
 }
 initDatabase();
 
+// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
 app.get('/api/parcels', async (req, res) => {
   try {
-    const result = await db.execute(sql`
-      SELECT 
-        id, 
-        name, 
-        ST_AsGeoJSON(geometry) as geometry, 
-        owner_name, 
-        owner_phone, 
-        owner_email, 
-        status, 
-        date,
-        ada_parsel,
-        has_work_license
-      FROM parcels
-    `);
-    
-    const formattedResult = result.map((r: any) => ({
-      ...r,
-      geometry: JSON.parse(r.geometry)
-    }));
+    // Tüm tabloları çekiyoruz
+    const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel FROM parcels`);
+    const structuresRes = await db.execute(sql`SELECT * FROM structures`);
+    const occupantsRes = await db.execute(sql`SELECT * FROM occupants`);
+
+    // Verileri JavaScript ile birleştiriyoruz (Hiyerarşik Yapı)
+    const formattedResult = parcelsRes.map((p: any) => {
+      const pStructures = structuresRes
+        .filter((s: any) => s.parcel_id === p.id)
+        .map((s: any) => {
+          const sOccupants = occupantsRes.filter((o: any) => o.structure_id === s.id);
+          return { ...s, occupants: sOccupants };
+        });
+
+      return {
+        ...p,
+        geometry: JSON.parse(p.geometry),
+        structures: pStructures
+      };
+    });
     
     res.json(formattedResult);
   } catch (err: any) {
@@ -79,52 +102,42 @@ app.get('/api/parcels', async (req, res) => {
   }
 });
 
+// PARSEL EKLEME
 app.post('/api/parcels', async (req, res) => {
   try {
-    const { name, geometry, ownerName, ownerPhone, ownerEmail, status, adaParsel, hasWorkLicense } = req.body;
+    const { name, geometry, status, adaParsel } = req.body;
     const id = randomUUID();
     const geojsonStr = JSON.stringify(geometry);
     
     await db.execute(sql`
-      INSERT INTO parcels (id, name, geometry, owner_name, owner_phone, owner_email, status, ada_parsel, has_work_license)
-      VALUES (
-        ${id}, 
-        ${name}, 
-        ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}::json), 4326), 
-        ${ownerName || null}, 
-        ${ownerPhone || null}, 
-        ${ownerEmail || null}, 
-        ${status || 'Aktif'},
-        ${adaParsel || null},
-        ${hasWorkLicense || false}
-      )
+      INSERT INTO parcels (id, name, geometry, status, ada_parsel)
+      VALUES (${id}, ${name}, ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}::json), 4326), ${status || 'Aktif'}, ${adaParsel || null})
     `);
-    
     res.status(201).json({ id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.patch('/api/parcels/:id', async (req, res) => {
+// YAPI (BİNA) EKLEME
+app.post('/api/structures', async (req, res) => {
   try {
-    const { id } = req.params;
-    const { ownerName, ownerPhone, ownerEmail, status, name, adaParsel, hasWorkLicense } = req.body;
-    
-    await db.execute(sql`
-      UPDATE parcels
-      SET 
-        owner_name = ${ownerName}, 
-        owner_phone = ${ownerPhone}, 
-        owner_email = ${ownerEmail}, 
-        status = ${status},
-        name = ${name},
-        ada_parsel = ${adaParsel},
-        has_work_license = ${hasWorkLicense}
-      WHERE id = ${id}
-    `);
-    
-    res.json({ success: true });
+    const { parcel_id, name, building_type } = req.body;
+    const id = randomUUID();
+    await db.execute(sql`INSERT INTO structures (id, parcel_id, name, building_type) VALUES (${id}, ${parcel_id}, ${name}, ${building_type})`);
+    res.status(201).json({ id });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// FİRMA/KİŞİ EKLEME
+app.post('/api/occupants', async (req, res) => {
+  try {
+    const { structure_id, name, role, phone, email, has_work_license } = req.body;
+    const id = randomUUID();
+    await db.execute(sql`INSERT INTO occupants (id, structure_id, name, role, phone, email, has_work_license) VALUES (${id}, ${structure_id}, ${name}, ${role}, ${phone}, ${email}, ${has_work_license})`);
+    res.status(201).json({ id });
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -132,24 +145,17 @@ app.patch('/api/parcels/:id', async (req, res) => {
 
 if (process.env.NODE_ENV !== "production") {
   import('vite').then(async ({ createServer: createViteServer }) => {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
+    const vite = await createViteServer({ server: { middlewareMode: true }, appType: "spa" });
     app.use(vite.middlewares);
   });
 } else {
   const distPath = path.join(process.cwd(), 'dist');
   app.use(express.static(distPath));
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
+  app.get('*', (req, res) => { res.sendFile(path.join(distPath, 'index.html')); });
 }
 
 if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  app.listen(PORT, () => { console.log(`Server running on http://localhost:${PORT}`); });
 }
 
 export default app;

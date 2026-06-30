@@ -373,31 +373,23 @@ export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
                   </Tooltip>
                 )}
 
-                <Popup minWidth={300}>
+                <Popup minWidth={250}>
                   <div className="font-sans text-sm p-1 text-gray-800">
                     <div className="border-b pb-2 mb-2">
                       <h3 className="font-bold text-base text-gray-900 m-0 mb-0.5">{parcel.ada_parsel || parcel.name || 'İsimsiz Parsel'}</h3>
-                      {parcel.ada_parsel && <p className="text-xs text-gray-500 mt-0 mb-2">{parcel.name}</p>}
-                      <div className="flex gap-2 flex-wrap">
+                      <div className="flex gap-2 flex-wrap mt-1">
                         <span className="text-xs bg-green-100 text-green-800 px-2 py-0.5 rounded-full font-medium">
                           Durum: {parcel.status || 'Aktif'}
                         </span>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${parcel.has_work_license ? 'bg-blue-100 text-blue-800' : 'bg-red-100 text-red-800'}`}>
-                          Ruhsat: {parcel.has_work_license ? 'Var' : 'Yok'}
-                        </span>
                       </div>
                     </div>
-                    <div className="space-y-1.5 text-gray-700">
-                      <p className="m-0"><strong>Nitelik/Sahip (Malik):</strong> {parcel.owner_name || 'Belirtilmemiş'}</p>
-                      <p className="m-0"><strong>Kiracı Firma:</strong> {parcel.tenant_name || 'Yok'}</p>
-                      <p className="m-0"><strong>Telefon:</strong> {parcel.owner_phone || 'Belirtilmemiş'}</p>
-                      <p className="m-0"><strong>E-posta:</strong> {parcel.owner_email || 'Belirtilmemiş'}</p>
-                      
-                      <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t">
-                        <p className="m-0"><strong>Alan:</strong> {parcel.area_m2 ? `${parcel.area_m2} m²` : 'Girilmemiş'}</p>
-                        <p className="m-0"><strong>İmar:</strong> {parcel.zoning_status || 'Sanayi'}</p>
-                      </div>
-                      <p className="m-0 text-xs text-gray-500 mt-1 pt-1 border-t"><strong>Altyapı:</strong> {parcel.infrastructure_info || 'Tespit Edilmedi'}</p>
+                    
+                    <div className="bg-gray-50 p-2 rounded border border-gray-200 mb-3">
+                      <p className="m-0 text-xs text-gray-600 font-semibold mb-1">PARSEL ÖZETİ:</p>
+                      <p className="m-0 text-sm">🏢 Toplam Yapı: <strong>{parcel.structures?.length || 0}</strong></p>
+                      <p className="m-0 text-sm">👥 Toplam Kayıt: <strong>
+                        {parcel.structures?.reduce((total: number, s: any) => total + (s.occupants?.length || 0), 0) || 0}
+                      </strong></p>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 mt-3">
@@ -405,13 +397,13 @@ export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
                         onClick={() => downloadCoordinates(parcel.geometry, parcel.ada_parsel || parcel.name || "parsel")}
                         className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
                       >
-                        <Download size={14} /> Koordinat İndir
+                        <Download size={14} /> Koordinat
                       </button>
                       <button 
                         onClick={() => onEditParcel && onEditParcel(parcel.id)}
-                        className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                        className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer shadow-sm"
                       >
-                        <Edit2 size={14} /> Parseli Düzenle
+                        <Edit2 size={14} /> Detayları Yönet
                       </button>
                     </div>
                   </div>
