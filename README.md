@@ -1,4 +1,4 @@
-# OSB Parsel Bilgi Sistemi
+# Alan Bilgi Yönetimi
 
 ## Projenin Amacı
 Bu proje, Organize Sanayi Bölgeleri (OSB) yönetimleri için özel olarak tasarlanmış, harita tabanlı bir parsel bilgi ve yönetim sistemidir. Sistemin temel hedefi, OSB sınırları içerisindeki parsel verilerinin tek bir merkezden, dijital harita üzerinden hızlı ve güvenilir bir şekilde yönetilmesini sağlamaktır.
@@ -35,3 +35,5 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
    program ai lar ile geliştirileceği için mümkün mertebe ayrık sayfalarla çalışılması iyi olur
 
    Tasarım olarak Autocad örnek alınsın.
+
+   Mobilde de kullanılacak şekilde tasarımlar yapılsın.
