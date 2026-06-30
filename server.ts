@@ -121,6 +121,8 @@ async function initDatabase() {
     `);
     
     await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS ada_parsel TEXT;`);
+    await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS zoning_status TEXT DEFAULT 'Sanayi';`);
+    await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS area_m2 NUMERIC DEFAULT 0;`);
     console.log("PostgreSQL İlişkisel Tablo yapısı başarıyla hazırlandı (Bağımsız Bölüm Mimarisi).");
   } catch (err: any) {
     console.error("Veritabanı otomatik kurulum hatası:", err.message);
@@ -179,11 +181,11 @@ app.get('/api/parcels', async (req, res) => {
 
       return {
         ...p,
-        geometry: JSON.parse(p.geometry),
+        geometry: p.geometry ? JSON.parse(p.geometry) : null,
         structures: pStructures,
         owners: pOwners,
-        zoning_details: pZoningDetails, // İmar verisi parsele eklendi
-        licenses: pLicenses             // Ruhsat verisi parsele eklendi
+        zoning_details: pZoningDetails,
+        licenses: pLicenses
       };
     });
     
