@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, Polygon, Popup, useMap } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
@@ -36,12 +36,17 @@ function FitBoundsComponent({ parcels }: { parcels: any[] }) {
 }
 
 export default function ParcelMap() {
-  const defaultCenter: [number, number] = [39.92077, 32.85411]; // Eğer hiç parsel yoksa başlangıç noktası (Ankara)
+  const defaultCenter: [number, number] = [39.92077, 32.85411]; 
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
 
-  // API'den mevcut yüklenmiş parselleri çekiyoruz
-  useEffect(() => {
+  // --- YENİ EKLENEN STATE VE REF'LER ---
+  const [uploading, setUploading] = useState<boolean>(false); 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // --- DEĞİŞTİRİLEN VERİ ÇEKME MOTORU ---
+  // Tekrar çağrılabilmesi için fetch işlemini bir fonksiyona aldık
+  const fetchParcels = () => {
     fetch('/api/parcels')
       .then((res) => res.json())
       .then((data) => {
@@ -52,6 +57,10 @@ export default function ParcelMap() {
         console.error('Parseller yüklenirken hata oluştu:', err);
         setLoading(false);
       });
+  };
+
+  useEffect(() => {
+    fetchParcels();
   }, []);
 
   // Yeni çizim tamamlandığında tetiklenen fonksiyon (Önceki adımdan korundu)
@@ -64,14 +73,106 @@ export default function ParcelMap() {
     }
   };
 
+  // --- YENİ EKLENEN DOSYA YÜKLEME FONKSİYONU ---
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploading(true);
+    const reader = new FileReader();
+
+    // Dosya okunduğunda çalışacak asenkron blok
+    reader.onload = async (event) => {
+      try {
+        const geojsonData = JSON.parse(event.target?.result as string);
+        let featuresToUpload: any[] = [];
+
+        // TKGM ve standart CBS araçları genelde FeatureCollection üretir
+        if (geojsonData.type === 'FeatureCollection' && Array.isArray(geojsonData.features)) {
+          featuresToUpload = geojsonData.features;
+        } else if (geojsonData.type === 'Feature') {
+          featuresToUpload = [geojsonData];
+        } else if (geojsonData.coordinates) {
+          // Sadece ham geometri nesnesi yüklenirse sarmala
+          featuresToUpload = [{ type: 'Feature', geometry: geojsonData, properties: {} }];
+        }
+
+        if (featuresToUpload.length === 0) {
+          alert('Geçerli bir GeoJSON parsel verisi bulunamadı.');
+          setUploading(false);
+          return;
+        }
+
+        // Dosya içindeki tüm parselleri döngüyle backend'e asenkron post ediyoruz
+        for (const feature of featuresToUpload) {
+          // TKGM properties altındaki PARSEL_NO özniteliğini veya genel adı yakalamaya çalışıyoruz
+          const parcelName = feature.properties?.name || 
+                             feature.properties?.PARSEL_NO || 
+                             `Yüklenen Parsel (${new Date().toLocaleDateString()})`;
+
+          await fetch('/api/parcels', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: parcelName,
+              geometry: feature.geometry, // Backend'deki ST_GeomFromGeoJSON doğrudan bunu bekler
+              ownerName: feature.properties?.owner_name || null,
+              ownerPhone: null,
+              ownerEmail: null,
+              status: 'Aktif'
+            })
+          });
+        }
+
+        alert(`${featuresToUpload.length} adet parsel başarıyla veritabanına işlendi ve haritaya eklendi.`);
+        fetchParcels(); // Haritada hemen görünmesi için listeyi yenile
+      } catch (err) {
+        console.error('GeoJSON işleme hatası:', err);
+        alert('Dosya formatı hatalı. Lütfen geçerli bir .geojson veya .json dosyası seçin.');
+      } finally {
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = ''; // Aynı dosya tekrar seçilebilsin diye temizle
+      }
+    };
+
+    reader.readAsText(file); // Dosyayı string olarak okumaya başla
+  };
+
   if (loading) {
     return <div className="p-4 text-center text-gray-600 font-medium">OSB Parsel Verileri Yükleniyor...</div>;
   }
 
   return (
-    <div style={{ height: '600px', width: '100%', borderRadius: '8px', overflow: 'hidden' }}>
-      <MapContainer 
-        center={defaultCenter} 
+    <div className="w-full flex flex-col gap-2">
+      {/* --- GÖRSEL BUTON VE GİZLİ INPUT EKLEDİK (Tailwind V4 Uyumlu) --- */}
+      <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 shadow-xs">
+        <span className="text-sm text-gray-600 font-medium">
+          TKGM'den indirdiğiniz veya ürettiğiniz <strong>.geojson</strong> dosyalarını doğrudan sisteme yükleyebilirsiniz.
+        </span>
+        <div>
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            accept=".geojson,.json" 
+            onChange={handleFileUpload} 
+            className="hidden" 
+          />
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className={`px-4 py-2 rounded-md font-medium text-sm text-white transition-all shadow-sm ${
+              uploading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700 active:scale-98'
+            }`}
+          >
+            {uploading ? 'Parseller İşleniyor...' : 'GeoJSON Dosyası Yükle'}
+          </button>
+        </div>
+      </div>
+
+      {/* Harita buradaki div'in altında temiz bir şekilde çalışmaya devam edecek */}
+      <div style={{ height: '600px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '1px solid #e5e7eb' }}>
+        <MapContainer 
+          center={defaultCenter}
         zoom={6} 
         style={{ height: '100%', width: '100%' }}
       >
