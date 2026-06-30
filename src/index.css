@@ -7,15 +7,25 @@
   color: #ffffff;
   font-weight: 700;
   text-shadow: 1px 1px 2px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9), 1px -1px 2px rgba(0,0,0,0.9), -1px 1px 2px rgba(0,0,0,0.9);
-  white-space: normal; /* Uzun metinlerin alt satıra geçmesine izin ver */
   text-align: center;
-  word-break: break-word; /* Kelime çok uzunsa böl */
-  max-width: 80%; /* Parsel genişliğinin %80'ini aşmasın */
   padding: 0 !important;
   line-height: 1.1;
   pointer-events: none; /* Etiketlere tıklanmasını engelle (altındaki parsele tıklanabilsin) */
-}
 
+  /* YENİ EKLENEN/DÜZELTİLEN KISIM */
+  min-width: 60px; /* Kutu çok daralıp sayıları bölmesin diye alt sınır */
+  max-width: 150px; /* % yerine px verdik, çok uzun metinlerin genişlemesini durdurur */
+  white-space: normal !important;
+  word-wrap: normal; /* Kelime ortasından/sayı ortasından bölmeyi engeller */
+  word-break: keep-all; 
+  
+  /* En fazla 2 satır kısıtlaması (3. satıra geçerse ... koyar) */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 /* Standart Tooltip okunu (üçgenini) gizle */
 .parcel-center-label::before {
   display: none !important;
@@ -28,3 +38,4 @@
 .zoom-level-17 { font-size: 0.9rem; }
 .zoom-level-18 { font-size: 1rem; }
 .zoom-level-19 { font-size: 1.1rem; }
+

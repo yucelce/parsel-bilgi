@@ -384,12 +384,8 @@ function ZoomListener() {
                 }}
               >
                 {/* HARİTA ÜZERİNDE ORTADA GÖRÜNECEK KALICI ETİKET */}
-                {labelText && currentZoom >= 14 && ( // Sadece zoom 14 ve üzeriyse göster
-                  <Tooltip 
-                    permanent 
-                    direction="center" 
-                    className={`parcel-center-label zoom-level-${currentZoom}`}
-                  >
+                {labelText && (
+                  <Tooltip permanent direction="center" className="parcel-center-label">
                     {labelText}
                   </Tooltip>
                 )}
