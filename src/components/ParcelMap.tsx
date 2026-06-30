@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, FeatureGroup, Polygon, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, FeatureGroup, Polygon, Popup, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -68,7 +68,6 @@ export default function ParcelMap() {
     }
   };
 
-  // GELİŞTİRİLMİŞ AKILLI DOSYA YÜKLEME VE HATA BİLDİRİM MOTORU
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -78,7 +77,6 @@ export default function ParcelMap() {
 
     reader.onload = async (event) => {
       try {
-        // 1. JSON Format Kontrolü (Dosya bozuk mu?)
         let geojsonData;
         try {
           geojsonData = JSON.parse(event.target?.result as string);
@@ -88,28 +86,22 @@ export default function ParcelMap() {
 
         let featuresToUpload: any[] = [];
 
-        // 2. Akıllı Format Algılama (Standart GeoJSON veya Ham Geometri)
         if (!geojsonData || typeof geojsonData !== 'object') {
           throw new Error('Dosya içeriği okunabilir bir veri içermiyor.');
         }
 
         if (geojsonData.type === 'FeatureCollection' && Array.isArray(geojsonData.features)) {
-          // TKGM veya QGIS gibi sistemlerin standart çıktısı
           featuresToUpload = geojsonData.features;
         } else if (geojsonData.type === 'Feature') {
-          // Sadece tek bir parsel verisi (Feature)
           featuresToUpload = [geojsonData];
         } else if (geojsonData.type === 'Polygon' || geojsonData.type === 'MultiPolygon') {
-          // Sadece ham koordinat geometrisi yüklenmişse (Doğal format) bunu sarmala
           featuresToUpload = [{ type: 'Feature', geometry: geojsonData, properties: {} }];
         } else if (Array.isArray(geojsonData)) {
            throw new Error("Dosya sadece dizi (Array) içeriyor. Lütfen geçerli bir GeoJSON nesnesi (.geojson) yükleyin.");
         } else {
-          // Ne olduğunu anlayamadığımız bir JSON objesi ise
           throw new Error('Desteklenmeyen format. Dosyanızın tipi "FeatureCollection", "Feature" veya "Polygon" olmalıdır.');
         }
 
-        // 3. İçerik Boşluk Kontrolü
         if (featuresToUpload.length === 0) {
           throw new Error('Dosya formatı doğru görünse de içerisinde işlenebilecek hiçbir parsel (Feature) bulunamadı.');
         }
@@ -117,9 +109,7 @@ export default function ParcelMap() {
         const uploadedLatLngs: L.LatLng[] = [];
         let successCount = 0;
 
-        // 4. Verileri Veritabanına Yazma
         for (const feature of featuresToUpload) {
-          // Geometri verisi yoksa bu kaydı atla
           if (!feature.geometry) continue;
 
           const props = feature.properties || {};
@@ -162,7 +152,6 @@ export default function ParcelMap() {
            throw new Error('Parsellerin geometrisi çıkarılamadı (Sadece nokta/line yüklemiş olabilirsiniz). Sadece Poligon (Alan) desteklenmektedir.');
         }
 
-        // 5. Başarılı Yükleme Sonrası Zoom
         if (uploadedLatLngs.length > 0) {
           setMapBounds(L.latLngBounds(uploadedLatLngs));
         }
@@ -171,7 +160,6 @@ export default function ParcelMap() {
         fetchParcels(false); 
         
       } catch (err: any) {
-        // HATA YAKALAMA VE BİLGİLENDİRME EKRANI
         console.error('GeoJSON İşleme Hatası:', err);
         alert(`❌ PARSEL YÜKLEME BAŞARISIZ!\n\nSebep: ${err.message}\n\nÇözüm: TKGM'den indirdiğiniz orijinal .json dosyasını değiştirmeden yüklemeyi deneyin.`);
       } finally {
@@ -219,10 +207,43 @@ export default function ParcelMap() {
           zoom={6} 
           style={{ height: '100%', width: '100%' }}
         >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
+          {/* HARİTA KATMANLARI SEÇİCİSİ BURADA BAŞLIYOR */}
+          <LayersControl position="topleft">
+            
+            {/* 1. Google Karayolları (Klasik Google Haritalar) */}
+            <LayersControl.BaseLayer checked name="Google Yol Haritası">
+              <TileLayer
+                url="https://mt1.google.com/vt/lyrs=m&hl=tr&x={x}&y={y}&z={z}"
+                attribution="&copy; Google Maps"
+              />
+            </LayersControl.BaseLayer>
+
+            {/* 2. Google Uydu + Yol İsimleri (Karma) */}
+            <LayersControl.BaseLayer name="Google Uydu (Karma)">
+              <TileLayer
+                url="https://mt1.google.com/vt/lyrs=y&hl=tr&x={x}&y={y}&z={z}"
+                attribution="&copy; Google Maps"
+              />
+            </LayersControl.BaseLayer>
+
+            {/* 3. Açık Kaynaklı OSM Yol Haritası */}
+            <LayersControl.BaseLayer name="OSM Yol Haritası (Alternatif)">
+              <TileLayer
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              />
+            </LayersControl.BaseLayer>
+
+            {/* 4. Esri Profesyonel Uydu Haritası */}
+            <LayersControl.BaseLayer name="Esri Detaylı Uydu">
+              <TileLayer
+                attribution='&copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+                url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}"
+              />
+            </LayersControl.BaseLayer>
+
+          </LayersControl>
+          {/* HARİTA KATMANLARI SEÇİCİSİ BURADA BİTİYOR */}
 
           <MapBoundsController bounds={mapBounds} />
 
