@@ -403,9 +403,14 @@ function ZoomListener() {
                     
                     <div className="bg-gray-50 p-2 rounded border border-gray-200 mb-3">
                       <p className="m-0 text-xs text-gray-600 font-semibold mb-1">PARSEL ÖZETİ:</p>
-                      <p className="m-0 text-sm">🏢 Toplam Yapı: <strong>{parcel.structures?.length || 0}</strong></p>
-                      <p className="m-0 text-sm">👥 Toplam Kayıt: <strong>
-                        {parcel.structures?.reduce((total: number, s: any) => total + (s.occupants?.length || 0), 0) || 0}
+                      <p className="m-0 text-sm">🏢 Toplam Yapı/Bina: <strong>{parcel.structures?.length || 0}</strong></p>
+                      <p className="m-0 text-sm">🚪 Bağımsız Bölüm: <strong>
+                        {parcel.structures?.reduce((total: number, s: any) => total + (s.units?.length || 0), 0) || 0}
+                      </strong></p>
+                      <p className="m-0 text-sm">👥 Toplam İşletme: <strong>
+                        {parcel.structures?.reduce((total: number, s: any) => {
+                            return total + (s.units?.reduce((uTotal: number, u: any) => uTotal + (u.occupants?.length || 0), 0) || 0);
+                        }, 0) || 0}
                       </strong></p>
                     </div>
 

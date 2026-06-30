@@ -49,8 +49,17 @@ async function initDatabase() {
       );
     `);
 
-    // 3. FİRMA VE KİŞİLER TABLOSU (Malik/Kiracı)
-    // 3. MERKEZİ PAYDAŞLAR (KİŞİ/FİRMA) TABLOSU
+    // 3. BAĞIMSIZ BÖLÜMLER TABLOSU (YENİ EKLENDİ)
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS independent_units (
+        id UUID PRIMARY KEY,
+        structure_id UUID REFERENCES structures(id) ON DELETE CASCADE,
+        name TEXT,
+        unit_no TEXT
+      );
+    `);
+
+    // 4. MERKEZİ PAYDAŞLAR (KİŞİ/FİRMA) TABLOSU
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS entities (
         id UUID PRIMARY KEY,
@@ -63,18 +72,18 @@ async function initDatabase() {
       );
     `);
 
-    // 4. BİNA - PAYDAŞ İLİŞKİ TABLOSU (Hangi binada, kim, hangi rolde?)
+    // 5. BAĞIMSIZ BÖLÜM - PAYDAŞ İLİŞKİ TABLOSU (YENİ: Ruhsat ve Kiracılık buraya bağlandı)
     await db.execute(sql`
-      CREATE TABLE IF NOT EXISTS structure_entities (
+      CREATE TABLE IF NOT EXISTS unit_entities (
         id UUID PRIMARY KEY,
-        structure_id UUID REFERENCES structures(id) ON DELETE CASCADE,
+        unit_id UUID REFERENCES independent_units(id) ON DELETE CASCADE,
         entity_id UUID REFERENCES entities(id) ON DELETE CASCADE,
         role TEXT,
         has_work_license BOOLEAN DEFAULT false
       );
     `);
 
-    // 5. PARSEL - PAYDAŞ İLİŞKİ TABLOSU (Arsa sahiplerini / Hissedarları tutmak için)
+    // 6. PARSEL - PAYDAŞ İLİŞKİ TABLOSU (Arsa sahipleri)
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS parcel_entities (
         id UUID PRIMARY KEY,
@@ -84,63 +93,55 @@ async function initDatabase() {
       );
     `);
     
-    // Eskiden kalan sütunların hata vermemesi için güvenli eklemeler
     await db.execute(sql`ALTER TABLE parcels ADD COLUMN IF NOT EXISTS ada_parsel TEXT;`);
-    
-    console.log("PostgreSQL İlişkisel Tablo yapısı başarıyla hazırlandı.");
+    console.log("PostgreSQL İlişkisel Tablo yapısı başarıyla hazırlandı (Bağımsız Bölüm Mimarisi).");
   } catch (err: any) {
     console.error("Veritabanı otomatik kurulum hatası:", err.message);
   }
 }
 initDatabase();
 
-// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
-// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
-// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR
+// TÜM VERİLERİ İÇ İÇE (NESTED) GETİR - GÜNCELLENDİ
 app.get('/api/parcels', async (req, res) => {
   try {
     const parcelsRes = await db.execute(sql`SELECT id, name, ST_AsGeoJSON(geometry) as geometry, status, date, ada_parsel FROM parcels`);
     const structuresRes = await db.execute(sql`SELECT * FROM structures`);
+    const unitsRes = await db.execute(sql`SELECT * FROM independent_units ORDER BY unit_no ASC`);
     const entitiesRes = await db.execute(sql`SELECT * FROM entities`);
-    const structureEntitiesRes = await db.execute(sql`SELECT * FROM structure_entities`);
-    const parcelEntitiesRes = await db.execute(sql`SELECT * FROM parcel_entities`); // YENİ: Parsel Sahipleri
+    const unitEntitiesRes = await db.execute(sql`SELECT * FROM unit_entities`); 
+    const parcelEntitiesRes = await db.execute(sql`SELECT * FROM parcel_entities`); 
 
     const formattedResult = parcelsRes.map((p: any) => {
-      // 1. Bina ve Bina İçi Kiracı/Malikleri bul
-      const pStructures = structuresRes
-        .filter((s: any) => s.parcel_id === p.id)
-        .map((s: any) => {
-          const sLinks = structureEntitiesRes.filter((se: any) => se.structure_id === s.id);
-          const sOccupants = sLinks.map((link: any) => {
-            const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
-            return {
-              ...entityData,
-              entity_id: entityData.id,
-              id: link.id,
-              role: link.role,
-              has_work_license: link.has_work_license
-            };
-          });
-          return { ...s, occupants: sOccupants };
-        });
-
-      // 2. Doğrudan Parselin Sahiplerini (Arsa Maliklerini) Bul
+      // 1. Doğrudan Parselin Sahiplerini (Arsa Maliklerini) Bul
       const pLinks = parcelEntitiesRes.filter((pe: any) => pe.parcel_id === p.id);
       const pOwners = pLinks.map((link: any) => {
         const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
-        return {
-          ...entityData,
-          entity_id: entityData.id,
-          id: link.id,
-          share_percentage: link.share_percentage
-        };
+        return { ...entityData, entity_id: entityData.id, id: link.id, share_percentage: link.share_percentage };
       });
+
+      // 2. Binaları ve İçindeki Bağımsız Bölümleri Bul
+      const pStructures = structuresRes
+        .filter((s: any) => s.parcel_id === p.id)
+        .map((s: any) => {
+          // Binanın içindeki bağımsız bölümleri bul
+          const sUnits = unitsRes.filter((u: any) => u.structure_id === s.id).map((u: any) => {
+             // Bağımsız bölümdeki kiracı/malikleri bul
+             const uLinks = unitEntitiesRes.filter((ue: any) => ue.unit_id === u.id);
+             const uOccupants = uLinks.map((link: any) => {
+                const entityData = entitiesRes.find((e: any) => e.id === link.entity_id) || {};
+                return { ...entityData, entity_id: entityData.id, id: link.id, role: link.role, has_work_license: link.has_work_license };
+             });
+             return { ...u, occupants: uOccupants };
+          });
+
+          return { ...s, units: sUnits }; // units (bağımsız bölümler) binaya eklendi
+        });
 
       return {
         ...p,
         geometry: JSON.parse(p.geometry),
         structures: pStructures,
-        owners: pOwners // Arsa sahiplerini JSON'a ekledik
+        owners: pOwners 
       };
     });
     
@@ -150,32 +151,23 @@ app.get('/api/parcels', async (req, res) => {
   }
 });
 
-// PARSEL EKLEME
+// PARSEL SİLME VE EKLEME API'LERİ AYNI
 app.post('/api/parcels', async (req, res) => {
   try {
     const { name, geometry, status, adaParsel } = req.body;
     const id = randomUUID();
     const geojsonStr = JSON.stringify(geometry);
-    
-    await db.execute(sql`
-      INSERT INTO parcels (id, name, geometry, status, ada_parsel)
-      VALUES (${id}, ${name}, ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}::json), 4326), ${status || 'Aktif'}, ${adaParsel || null})
-    `);
+    await db.execute(sql`INSERT INTO parcels (id, name, geometry, status, ada_parsel) VALUES (${id}, ${name}, ST_SetSRID(ST_GeomFromGeoJSON(${geojsonStr}::json), 4326), ${status || 'Aktif'}, ${adaParsel || null})`);
     res.status(201).json({ id });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 app.delete('/api/parcels/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    // Veritabanından parseli sil (ON DELETE CASCADE olduğu için içindeki binalar ve kişiler de otomatik silinir)
     await db.execute(sql`DELETE FROM parcels WHERE id = ${id}`);
     res.status(200).json({ message: 'Parsel başarıyla silindi' });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // YAPI (BİNA) EKLEME
@@ -185,35 +177,32 @@ app.post('/api/structures', async (req, res) => {
     const id = randomUUID();
     await db.execute(sql`INSERT INTO structures (id, parcel_id, name, building_type) VALUES (${id}, ${parcel_id}, ${name}, ${building_type})`);
     res.status(201).json({ id });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// FİRMA/KİŞİ EKLEME
-// SİSTEMDEKİ TÜM FİRMA/KİŞİLERİ GETİR (Listeden seçmek için)
+// BAĞIMSIZ BÖLÜM EKLEME (YENİ)
+app.post('/api/independent-units', async (req, res) => {
+    try {
+      const { structure_id, name, unit_no } = req.body;
+      const id = randomUUID();
+      await db.execute(sql`INSERT INTO independent_units (id, structure_id, name, unit_no) VALUES (${id}, ${structure_id}, ${name}, ${unit_no})`);
+      res.status(201).json({ id });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
+// SİSTEMDEKİ TÜM FİRMA/KİŞİLERİ GETİR VE EKLE
 app.get('/api/entities', async (req, res) => {
-  try {
-    const result = await db.execute(sql`SELECT * FROM entities ORDER BY name ASC`);
-    res.json(result);
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  try { const result = await db.execute(sql`SELECT * FROM entities ORDER BY name ASC`); res.json(result); } 
+  catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
-// YENİ FİRMA / KİŞİ OLUŞTUR (Sisteme yeni kayıt eklerken)
 app.post('/api/entities', async (req, res) => {
   try {
     const { type, name, tc_vkn, tax_office, phone, email } = req.body;
     const id = randomUUID();
-    await db.execute(sql`
-      INSERT INTO entities (id, type, name, tc_vkn, tax_office, phone, email) 
-      VALUES (${id}, ${type}, ${name}, ${tc_vkn}, ${tax_office}, ${phone}, ${email})
-    `);
+    await db.execute(sql`INSERT INTO entities (id, type, name, tc_vkn, tax_office, phone, email) VALUES (${id}, ${type}, ${name}, ${tc_vkn}, ${tax_office}, ${phone}, ${email})`);
     res.status(201).json({ id });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // PARSELE ARSA SAHİBİ (MALİK) BAĞLA
@@ -221,15 +210,20 @@ app.post('/api/parcel-entities', async (req, res) => {
   try {
     const { parcel_id, entity_id, share_percentage } = req.body;
     const id = randomUUID();
-    await db.execute(sql`
-      INSERT INTO parcel_entities (id, parcel_id, entity_id, share_percentage) 
-      VALUES (${id}, ${parcel_id}, ${entity_id}, ${share_percentage || 100})
-    `);
+    await db.execute(sql`INSERT INTO parcel_entities (id, parcel_id, entity_id, share_percentage) VALUES (${id}, ${parcel_id}, ${entity_id}, ${share_percentage || 100})`);
     res.status(201).json({ id });
-  } catch (err: any) {
-    res.status(500).json({ error: err.message });
-  }
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
+
+// BAĞIMSIZ BÖLÜME KİRACI/MALİK BAĞLA (YENİ)
+app.post('/api/unit-entities', async (req, res) => {
+    try {
+      const { unit_id, entity_id, role, has_work_license } = req.body;
+      const id = randomUUID();
+      await db.execute(sql`INSERT INTO unit_entities (id, unit_id, entity_id, role, has_work_license) VALUES (${id}, ${unit_id}, ${entity_id}, ${role}, ${has_work_license})`);
+      res.status(201).json({ id });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
 
 if (process.env.NODE_ENV !== "production") {
   import('vite').then(async ({ createServer: createViteServer }) => {
@@ -245,5 +239,4 @@ if (process.env.NODE_ENV !== "production") {
 if (process.env.NODE_ENV !== 'production') {
   app.listen(PORT, () => { console.log(`Server running on http://localhost:${PORT}`); });
 }
-
 export default app;
