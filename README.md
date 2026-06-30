@@ -20,9 +20,14 @@ Bu kod tabanına katkıda bulunacak tüm geliştiriciler ve yapay zeka asistanla
     *   **2D Harita:** Leaflet & React-Leaflet.
     *   **Backend & Veri:** Node.js, Express, PostgreSQL, Drizzle ORM.
 
+
+
 ## Kurulum ve Çalıştırma
 Projenin lokal ortamda çalıştırılması için gerekli adımlar:
 
 1. Bağımlılıkları yükleyin:
    ```bash
    npm install
+
+   Programı web editörde geliştiriyorum, package.json kodlarını maneul eklemeliyim
+   vercel ile geliştiriyoruz.
