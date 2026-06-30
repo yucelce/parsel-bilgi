@@ -297,13 +297,28 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
     <div className="absolute inset-0 bg-[#1e1e1e]/95 z-[999] p-6 flex flex-col overflow-hidden backdrop-blur-sm select-none">
 
       {/* ÜST PANEL / HEADER */}
+     {/* ÜST PANEL / HEADER */}
       <div className="flex justify-between items-center mb-6 border-b border-[#3c3c3c] pb-4">
-        <div>
-          <h2 className="text-xl font-bold text-gray-100 tracking-wide flex items-center gap-2">
-            <Layers className="text-blue-500" size={22} /> OSB Mekansal & Endüstriyel Tesis Yönetim Paneli
-          </h2>
-          <p className="text-xs text-gray-400 uppercase tracking-widest mt-0.5">Mülkiyet, Yapı ve Ruhsat Kontrol Merkezi</p>
+        {/* SOL: Kurumsal Logo ve Uygulama Adı Düzenlemesi */}
+        <div className="flex items-center gap-3">
+          <div className="bg-white p-1 rounded-md shadow-sm h-10 w-10 flex items-center justify-center">
+            <img 
+              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
+              alt="OSB Logo" 
+              className="max-h-full max-w-full object-contain"
+            />
+          </div>
+          <div>
+            <h2 className="text-base font-bold text-gray-100 tracking-wide uppercase leading-tight font-sans">
+              OSB PARSEL BİLGİ SİSTEMİ — YÖNETİM PANELİ
+            </h2>
+            <p className="text-[10px] text-gray-400 uppercase tracking-widest mt-0.5 font-mono">
+              Mülkiyet, Yapı, İmar ve Ruhsat Kontrol Merkezi
+            </p>
+          </div>
         </div>
+        
+        {/* SAĞ: Kapatma Butonu (Mevcut yapı korundu) */}
         <button onClick={onClose} className="p-2 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 transition-colors cursor-pointer">
           <X size={20} />
         </button>
