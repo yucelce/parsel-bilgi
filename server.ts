@@ -1,6 +1,6 @@
+import 'dotenv/config'; // .env dosyasını otomatik okumak için eklendi
 import express from 'express';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import { parcels } from './src/db/schema';
@@ -20,7 +20,6 @@ async function startServer() {
   // API Routes
   app.get('/api/parcels', async (req, res) => {
     try {
-      // Get parcels, but format the geometry column as GeoJSON
       const result = await db.execute(sql`
         SELECT 
           id, 
@@ -51,7 +50,6 @@ async function startServer() {
       const { name, geometry, ownerName, ownerPhone, ownerEmail, status } = req.body;
       const id = randomUUID();
       
-      // The geometry should be a valid GeoJSON string
       const geojsonStr = JSON.stringify(geometry);
       
       await db.execute(sql`
@@ -92,8 +90,10 @@ async function startServer() {
     }
   });
 
-  // Vite middleware for development
+  // Vite middleware for development (Düzeltildi)
   if (process.env.NODE_ENV !== "production") {
+    // Vite sadece development modundayken içeri aktarılır.
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
