@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Popup, Tooltip, useMap, LayersControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
-import { Upload, Focus, Download } from 'lucide-react';
+import { Upload, Focus, Download, Edit2 } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
@@ -20,7 +20,11 @@ function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
   return null;
 }
 
-export default function ParcelMap() {
+interface ParcelMapProps {
+  onEditParcel?: (id: string) => void;
+}
+
+export default function ParcelMap({ onEditParcel }: ParcelMapProps) {
   const defaultCenter: [number, number] = [39.92077, 32.85411]; 
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -396,12 +400,20 @@ export default function ParcelMap() {
                       <p className="m-0 text-xs text-gray-500 mt-1 pt-1 border-t"><strong>Altyapı:</strong> {parcel.infrastructure_info || 'Tespit Edilmedi'}</p>
                     </div>
 
-                    <button 
-                      onClick={() => downloadCoordinates(parcel.geometry, parcel.ada_parsel || parcel.name || "parsel")}
-                      className="mt-3 w-full flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
-                    >
-                      <Download size={14} /> Koordinatları İndir (GeoJSON)
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 mt-3">
+                      <button 
+                        onClick={() => downloadCoordinates(parcel.geometry, parcel.ada_parsel || parcel.name || "parsel")}
+                        className="flex items-center justify-center gap-1 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Download size={14} /> Koordinat İndir
+                      </button>
+                      <button 
+                        onClick={() => onEditParcel && onEditParcel(parcel.id)}
+                        className="flex items-center justify-center gap-1 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-semibold transition-colors cursor-pointer"
+                      >
+                        <Edit2 size={14} /> Parseli Düzenle
+                      </button>
+                    </div>
                   </div>
                 </Popup>
               </GeoJSON>

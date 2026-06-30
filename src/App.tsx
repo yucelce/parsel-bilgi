@@ -2,16 +2,29 @@
 import React, { useState } from 'react';
 import ParcelMap from './components/ParcelMap';
 import ManagementPanel from './components/ManagementPanel';
-import { Map as MapIcon, Database } from 'lucide-react';
+import { Database } from 'lucide-react';
 
 function App() {
   const [showAdminPanel, setShowAdminPanel] = useState(false);
+  // Hangi parselin düzenleme moduyla açılacağını tutan state
+  const [initialEditId, setInitialEditId] = useState<string | null>(null);
+
+  // Haritadaki düzenle butonuna basıldığında tetiklenecek fonksiyon
+  const handleEditParcel = (id: string) => {
+    setInitialEditId(id);
+    setShowAdminPanel(true);
+  };
+
+  // Yönetim paneli kapatıldığında durumları sıfırlayan fonksiyon
+  const handleCloseAdmin = () => {
+    setShowAdminPanel(false);
+    setInitialEditId(null);
+  };
 
   return (
     <div className="h-screen w-screen bg-[#1e1e1e] flex flex-col font-sans overflow-hidden text-gray-200">
       <header className="bg-[#252526] border-b border-[#333] px-4 py-2 flex items-center justify-between shadow-md z-10 select-none">
         <div className="flex items-center gap-3">
-          {/* LOGO BURAYA EKLENDİ */}
           <div className="bg-white p-1 rounded-md shadow-sm h-10 w-10 flex items-center justify-center">
             <img 
               src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
@@ -39,9 +52,11 @@ function App() {
       </header>
       
       <main className="flex-1 relative w-full h-full">
-        <ParcelMap />
+        {/* Fonksiyonu haritaya prop olarak geçiyoruz */}
+        <ParcelMap onEditParcel={handleEditParcel} />
         {showAdminPanel && (
-          <ManagementPanel onClose={() => setShowAdminPanel(false)} />
+          // Kapatma fonksiyonunu ve hedef ID'yi panele geçiyoruz
+          <ManagementPanel onClose={handleCloseAdmin} initialEditId={initialEditId} />
         )}
       </main>
     </div>

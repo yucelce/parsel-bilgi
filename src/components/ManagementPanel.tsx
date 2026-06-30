@@ -1,16 +1,33 @@
 // src/components/ManagementPanel.tsx
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Search, Edit2, Save, XCircle } from 'lucide-react';
 
-export default function ManagementPanel({ onClose }: { onClose: () => void }) {
+
+export default function ManagementPanel({ onClose, initialEditId }: { onClose: () => void, initialEditId?: string | null }) {
   const [parcels, setParcels] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
+  // Düzenleme modunun sonsuz döngüye girmeden sadece panel ilk açıldığında çalışmasını sağlar
+  const hasInitializedEdit = useRef(false);
+
   useEffect(() => {
     fetchParcels();
   }, []);
+
+  // YENİ ETKİ (EFFECT): Parseller veritabanından yüklendiğinde haritadan gelen parseli bulur ve input modunu açar
+  useEffect(() => {
+    if (initialEditId && parcels.length > 0 && !hasInitializedEdit.current) {
+      const parcelToEdit = parcels.find(p => p.id === initialEditId);
+      if (parcelToEdit) {
+        setEditingId(parcelToEdit.id);
+        setEditForm({ ...parcelToEdit });
+        hasInitializedEdit.current = true; // İlk kurulum tamamlandı işareti
+      }
+    }
+  }, [initialEditId, parcels]);
 
   const fetchParcels = () => {
     fetch('/api/parcels')
