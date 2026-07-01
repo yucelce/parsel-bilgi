@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Tooltip, useMap, LayersControl, ZoomControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
 import L from 'leaflet';
-import { Upload, Focus, Database } from 'lucide-react';
+import { Upload, Focus, Database, X } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet-draw/dist/leaflet.draw.css';
 
