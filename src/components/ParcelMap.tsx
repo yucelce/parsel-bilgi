@@ -194,6 +194,9 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
     }
   };
 
+  
+  // ... diğer kodlar
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -205,7 +208,9 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
       try {
         let geojsonData;
         try {
-          geojsonData = JSON.parse(event.target?.result as string);
+          // BOM (Byte Order Mark) karakterini temizleyerek ayrıştır (Gizli karakter hatasını çözer)
+          const resultStr = (event.target?.result as string).replace(/^\uFEFF/, '');
+          geojsonData = JSON.parse(resultStr);
         } catch (parseError) {
           throw new Error("Dosya geçerli bir JSON formatında değil. Lütfen dosyanın bozuk olmadığından emin olun.");
         }
@@ -244,6 +249,9 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
           if (!adaParsel && props.Ada && props.ParselNo) {
             adaParsel = `${props.Ada}/${props.ParselNo}`;
           }
+
+          // Veritabanı hatasını önlemek için tipi string'e zorluyoruz
+          adaParsel = adaParsel ? String(adaParsel) : null;
 
           let parcelName = props.name;
           if (!parcelName && adaParsel) {
@@ -299,6 +307,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
         alert(`${successCount} adet parsel başarıyla işlendi ve haritaya eklendi.`);
         fetchParcels(false); 
+        setIsUploadModalOpen(false); // Modal'ı veriler yüklendikten SONRA kapatıyoruz.
         
       } catch (err: any) {
         console.error('GeoJSON İşleme Hatası:', err);
@@ -307,6 +316,11 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = ''; 
       }
+    };
+
+    reader.onerror = () => {
+       setUploading(false);
+       alert("❌ Dosya okuma sırasında bir hata oluştu.");
     };
 
     reader.readAsText(file);
@@ -596,11 +610,17 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
                       İptal
                     </button>
                     <button 
-                      onClick={handleManualSubmit}
+                      onClick={() => {
+                        if (!uploading) fileInputRef.current?.click();
+                      }}
                       disabled={uploading}
-                      className={`px-6 py-2 rounded-md text-sm font-bold cursor-pointer transition-colors shadow-md ${uploading ? 'bg-gray-600 text-gray-400' : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}
+                      className={`px-6 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors ${
+                        uploading 
+                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                          : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                      }`}
                     >
-                      {uploading ? 'İşleniyor...' : 'Sisteme İşle'}
+                      {uploading ? 'İşleniyor...' : 'Bilgisayardan Gözat...'}
                     </button>
                   </div>
                 </div>
