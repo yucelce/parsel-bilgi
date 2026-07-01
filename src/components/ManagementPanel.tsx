@@ -1,9 +1,8 @@
 // src/components/ManagementPanel.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import {
-  X, Search, Plus, Building, Users, Phone, Mail,
-  FileCheck, Trash2, DoorOpen, ShieldAlert, BarChart3,
-  Layers, CheckCircle2, AlertTriangle, Building2, Map, User
+  X, Search, Plus, Building, Users, Trash2, DoorOpen, ShieldAlert, BarChart3,
+  CheckCircle2, AlertTriangle, Building2, Map, User
 } from 'lucide-react';
 
 interface ManagementPanelProps {
@@ -16,7 +15,6 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
   // --- STATE TANIMLAMALARI ---
   const [parcels, setParcels] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'empty' | 'unlicensed'>('all');
   const [selectedParcel, setSelectedParcel] = useState<any | null>(null);
   const hasInitializedEdit = useRef(false);
 
@@ -88,7 +86,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parcel_id: selectedParcel.id, name, building_type: 'Bina' })
       });
-      if (res.ok) fetchParcels();
+      if (res.ok) fetchParcels(); // Not: İleride lazy loading gelince sadece detay API'si çağrılacak
     } catch (err) { console.error(err); }
   };
 
@@ -179,26 +177,11 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
     } catch (err: any) { alert(`Hata: ${err.message}`); }
   };
 
+  // Arama Filtresi (Sadece ada/parsel no veya isme göre)
   const filteredParcels = parcels.filter(p => {
     const matchesSearch = (p.ada_parsel || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesSearch) return false;
-
-    let totalUnits = 0; let occupiedUnits = 0; let missingLicense = false;
-
-    p.structures?.forEach((s: any) => {
-      s.units?.forEach((u: any) => {
-        totalUnits++;
-        if (u.occupants && u.occupants.length > 0) {
-          occupiedUnits++;
-          if (u.occupants.some((occ: any) => !occ.has_work_license)) missingLicense = true;
-        }
-      });
-    });
-
-    if (filterType === 'empty') return totalUnits === 0 || occupiedUnits === 0;
-    if (filterType === 'unlicensed') return missingLicense;
-    return true;
+    return matchesSearch;
   });
 
   const calculateStats = () => {
@@ -223,10 +206,9 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
   const stats = calculateStats();
 
   return (
-    // Dış boşluklar (padding) küçültüldü, tam ekran hissi verildi.
     <div className="absolute inset-0 bg-gray-900/60 z-[999] p-2 md:p-4 lg:p-6 flex flex-col overflow-hidden backdrop-blur-sm select-none font-sans">
 
-      {/* ÜST PANEL / HEADER - Kurumsal Koyu Lacivert */}
+      {/* ÜST PANEL / HEADER */}
       <div className="flex justify-between items-center mb-4 bg-[#1a2d42] p-3 rounded-xl shadow-lg border border-[#1a2d42] shrink-0">
         <div className="flex items-center gap-4">
           <div className="bg-white p-1 rounded shadow-sm h-10 w-10 flex items-center justify-center border border-gray-300">
@@ -254,8 +236,8 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
       {/* ANA GÖVDE */}
       <div className="flex flex-1 gap-4 lg:gap-6 overflow-hidden relative">
 
-        {/* SOL KOLON: PARSEL LİSTELEME VE FİLTRELER */}
-        <div className="w-1/3 min-w-[320px] flex flex-col border border-gray-200 rounded-xl bg-white overflow-hidden shadow-xl">
+        {/* SOL KOLON: SADELEŞTİRİLMİŞ PARSEL LİSTESİ */}
+        <div className="w-1/3 min-w-[280px] flex flex-col border border-gray-200 rounded-xl bg-white overflow-hidden shadow-xl">
 
           {/* Arama Kutusu */}
           <div className="p-3 border-b border-gray-200 bg-gray-50 shrink-0">
@@ -271,66 +253,25 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
             </div>
           </div>
 
-          {/* Filtre Butonları */}
-          <div className="grid grid-cols-3 gap-1.5 p-2 bg-gray-100 border-b border-gray-200 text-[10px] font-bold shrink-0">
-            <button
-              onClick={() => setFilterType('all')}
-              className={`py-1.5 px-1 rounded border transition-colors cursor-pointer ${filterType === 'all' ? 'bg-[#3a87ad] text-white border-[#3a87ad] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Tümü ({parcels.length})
-            </button>
-            <button
-              onClick={() => setFilterType('empty')}
-              className={`py-1.5 px-1 rounded border transition-colors cursor-pointer ${filterType === 'empty' ? 'bg-[#3a87ad] text-white border-[#3a87ad] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Boş Tesisler
-            </button>
-            <button
-              onClick={() => setFilterType('unlicensed')}
-              className={`py-1.5 px-1 rounded border transition-colors cursor-pointer ${filterType === 'unlicensed' ? 'bg-[#8b0000] text-white border-[#8b0000] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
-            >
-              Ruhsatsızlar
-            </button>
-          </div>
-
-          {/* Parsel Listesi */}
+          {/* Parsel Listesi (Detaylar Gizlendi, Sadeleştirildi) */}
           <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
             {filteredParcels.length === 0 ? (
               <div className="p-8 text-center text-gray-500 text-sm">Kriterlere uygun parsel kaydı bulunamadı.</div>
             ) : (
-              filteredParcels.map(parcel => {
-                let uCount = 0; let missingLic = false;
-                parcel.structures?.forEach((s: any) => {
-                  s.units?.forEach((u: any) => {
-                    uCount++;
-                    if (u.occupants?.some((o: any) => !o.has_work_license)) missingLic = true;
-                  });
-                });
-
-                return (
-                  <div
-                    key={parcel.id}
-                    onClick={() => setSelectedParcel(parcel)}
-                    className={`p-3 border-b border-gray-100 cursor-pointer transition-all flex justify-between items-center group ${selectedParcel?.id === parcel.id ? 'bg-blue-50 border-l-4 border-l-[#3a87ad]' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}`}
-                  >
-                    <div>
-                      <h3 className="font-bold text-xs text-[#1a2d42]">
-                        {parcel.ada_parsel ? `Ada/Parsel: ${parcel.ada_parsel}` : parcel.name}
-                      </h3>
-                      <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1.5 font-normal">
-                        <span className="flex items-center gap-1"><Building2 size={10} className="text-[#3a87ad]"/> {parcel.structures?.length || 0} Yapı</span>
-                        <span className="text-gray-300">•</span>
-                        <span className="flex items-center gap-1"><DoorOpen size={10} className="text-[#3a87ad]"/> {uCount} Bölüm</span>
-                      </p>
-                    </div>
-                    {missingLic && (
-                      <span title="Ruhsatsız işletme tespit edildi!" className="text-[#8b0000] bg-red-50 p-1 rounded border border-red-200">
-                        <ShieldAlert size={14} />
-                      </span>
-                    )}
+              filteredParcels.map(parcel => (
+                <div
+                  key={parcel.id}
+                  onClick={() => setSelectedParcel(parcel)} // İleride burada sadece detay çekme API'si çağrılacak
+                  className={`p-3 border-b border-gray-100 cursor-pointer transition-all flex items-center group ${selectedParcel?.id === parcel.id ? 'bg-blue-50 border-l-4 border-l-[#3a87ad]' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Map size={14} className={selectedParcel?.id === parcel.id ? "text-[#3a87ad]" : "text-gray-400"} />
+                    <h3 className={`font-bold text-xs ${selectedParcel?.id === parcel.id ? "text-[#3a87ad]" : "text-[#1a2d42]"}`}>
+                      {parcel.ada_parsel ? `Ada/Parsel: ${parcel.ada_parsel}` : parcel.name}
+                    </h3>
                   </div>
-                );
-              })
+                </div>
+              ))
             )}
           </div>
         </div>
@@ -366,7 +307,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
                 </div>
               </div>
 
-              {/* GÜNCELLENEN ALAN: İSTATİSTİK KARTLARI (Daraltıldı, Tek Satır Yapıldı) */}
+              {/* İSTATİSTİK KARTLARI */}
               <div className="flex flex-wrap justify-between items-center gap-3 p-3 bg-gray-50 border-b border-gray-200 text-sm shrink-0">
                 <div className="flex-1 flex justify-between items-center bg-white border border-gray-200 px-3 py-2 rounded shadow-sm">
                   <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Fiziksel Yapı:</span>
@@ -441,7 +382,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
                     </div>
                   ) : (
                     <div className="space-y-4">
-                      {selectedParcel.structures.map((structure: any) => (
+                      {selectedParcel.structures?.map((structure: any) => (
                         <div key={structure.id} className="bg-white border border-gray-200 rounded overflow-hidden shadow-sm">
 
                           {/* Bina Başlığı */}

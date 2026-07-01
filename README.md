@@ -40,6 +40,9 @@ Projenin lokal ortamda çalıştırılması için gerekli adımlar:
 
    Programı büyütüp, geliştireceğiz.
 
+---
+
+
 Tasarım Özellikleri
 
 1. Renk Paleti (Color Palette)
