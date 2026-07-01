@@ -1,4 +1,4 @@
-// src/components/ParcelMap.tsx -- PROGRAMI HEP GELİŞTİRECEK ŞEKİLDE KOD YAZ
+// src/components/ParcelMap.tsx
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Tooltip, useMap, LayersControl, ZoomControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';
@@ -55,7 +55,10 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
   // --- YENİ EKLENEN STATE'LER VE FONKSİYONLAR ---
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
-  const [manualInputStyle, setManualInputStyle] = useState<'file' | 'manual'>('file');
+  
+  // DÜZELTME 1: State tipini tkgm ve geojson değerlerini içerecek şekilde güncelledik.
+  const [manualInputStyle, setManualInputStyle] = useState<'tkgm' | 'geojson' | 'manual'>('tkgm');
+  
   const [manualGeoJson, setManualGeoJson] = useState('');
 
   // Manuel girilen JSON verisini veritabanına kaydetme fonksiyonu
@@ -194,8 +197,6 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
     }
   };
 
-
-  // ... diğer kodlar
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -463,7 +464,8 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
                   weight: isSelected ? 3 : 2
                 }}
                 eventHandlers={{
-                  click: (e) => {
+                  // DÜZELTME 2: e parametresine 'any' tipini verdik.
+                  click: (e: any) => {
                     const layer = e.target;
                     // Tıklanan parsele hafifçe zoom yap
                     if (mapRef.current && layer.getBounds) {
@@ -488,6 +490,13 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
             <EditControl
               position="topright" // Çizim Araçları da Katmanların altında Sağ Üstte
               onCreated={handleCreated}
+              
+              // Düzenleme ve Silme butonlarını haritadan gizler
+              edit={{
+                edit: false,
+                remove: false
+              }}
+              
               draw={{
                 rectangle: false,
                 circle: false,
@@ -510,121 +519,119 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
           </FeatureGroup>
         </MapContainer>
       </div>
+
       {/* --- PARSEL YÜKLEME MODALI (POPUP) --- */}
-      {/* --- PARSEL YÜKLEME MODALI (POPUP) --- */}
-{isUploadModalOpen && (
-  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-    <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-gray-200">
-      
-      {/* Modal Başlığı */}
-      <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#1e1e1e]">
-        <h3 className="font-bold flex items-center gap-2 text-blue-400">
-          <Upload size={18} /> Parsel Sınırları Ekle
-        </h3>
-        <button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer bg-[#333] hover:bg-rose-500 p-1 rounded transition-colors">
-          <X size={18} />
-        </button>
-      </div>
-
-      {/* Sekmeler */}
-      <div className="flex border-b border-[#333] text-sm">
-        <button 
-          onClick={() => setManualInputStyle('tkgm')} 
-          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'tkgm' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
-        >
-          TKGM Dosyası Ekle
-        </button>
-        <button 
-          onClick={() => setManualInputStyle('geojson')} 
-          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'geojson' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
-        >
-          GeoJSON Ekle
-        </button>
-        <button 
-          onClick={() => setManualInputStyle('manual')} 
-          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'manual' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
-        >
-          Manuel Koordinat Gir
-        </button>
-      </div>
-
-      {/* İçerik */}
-      <div className="p-6">
-        
-        {manualInputStyle === 'tkgm' && (
-          <div className="text-center space-y-4">
-            <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-500/10 p-3 rounded border border-blue-500/20 mb-4 text-left">
-              <p>Tapu ve Kadastro Genel Müdürlüğü (TKGM) sisteminden indirdiğiniz <b>.json</b> veya <b>.kml</b> formatındaki parsel sınır dosyalarını buradan yükleyebilirsiniz.</p>
-            </div>
-            <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
-              <Upload size={40} className="mb-3 text-gray-500" />
-              <button 
-                onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
-              >
-                TKGM Dosyası Seç (.json)
-              </button>
-            </div>
-          </div>
-        )}
-
-        {manualInputStyle === 'geojson' && (
-          <div className="text-center space-y-4">
-             <div className="flex items-start gap-2 text-xs text-emerald-400 bg-emerald-500/10 p-3 rounded border border-emerald-500/20 mb-4 text-left">
-              <p>QGIS, ArcGIS, NetCAD gibi CBS yazılımlarından dışa aktardığınız standart <b>.geojson</b> dosyalarınızı buradan yükleyebilirsiniz.</p>
-            </div>
-            <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
-              <Upload size={40} className="mb-3 text-gray-500" />
-              <button 
-                onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
-                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
-              >
-                GeoJSON Dosyası Seç
-              </button>
-            </div>
-          </div>
-        )}
-
-        {manualInputStyle === 'manual' && (
-          <div className="space-y-4 flex flex-col h-full">
-            <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 p-3 rounded border border-amber-500/20">
-              <Database size={16} className="shrink-0 mt-0.5" />
-              <p>El ile koordinat girebilir veya ham GeoJSON kodunuzu buraya yapıştırabilirsiniz. <span className="text-gray-300 font-mono">Polygon</span> formatında olmalıdır.</p>
-            </div>
+      {isUploadModalOpen && (
+        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-gray-200">
             
-            <textarea 
-              className="w-full h-48 bg-[#151515] border border-[#444] rounded-md p-3 text-xs font-mono text-gray-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none custom-scrollbar"
-              placeholder='Örnek: { "type": "Polygon", "coordinates": [ [ [32.85, 39.92], [32.86, 39.92], [32.86, 39.93], [32.85, 39.92] ] ] }'
-              value={manualGeoJson}
-              onChange={(e) => setManualGeoJson(e.target.value)}
-            ></textarea>
-            
-            <div className="flex justify-end gap-3 mt-2">
-              <button 
-                onClick={() => setIsUploadModalOpen(false)} 
-                className="px-5 py-2 bg-[#333] hover:bg-[#444] text-gray-300 rounded-md text-sm font-semibold cursor-pointer transition-colors"
-              >
-                İptal
-              </button>
-              <button 
-                onClick={handleManualSubmit}
-                disabled={uploading}
-                className={`px-6 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors ${
-                  uploading ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
-                }`}
-              >
-                {uploading ? 'İşleniyor...' : 'Koordinatları Haritaya Ekle'}
+            {/* Modal Başlığı */}
+            <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#1e1e1e]">
+              <h3 className="font-bold flex items-center gap-2 text-blue-400">
+                <Upload size={18} /> Parsel Sınırları Ekle
+              </h3>
+              <button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer bg-[#333] hover:bg-rose-500 p-1 rounded transition-colors">
+                <X size={18} />
               </button>
             </div>
+
+            {/* Sekmeler */}
+            <div className="flex border-b border-[#333] text-sm">
+              <button 
+                onClick={() => setManualInputStyle('tkgm')} 
+                className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'tkgm' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+              >
+                TKGM Dosyası Ekle
+              </button>
+              <button 
+                onClick={() => setManualInputStyle('geojson')} 
+                className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'geojson' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+              >
+                GeoJSON Ekle
+              </button>
+              <button 
+                onClick={() => setManualInputStyle('manual')} 
+                className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'manual' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+              >
+                Manuel Koordinat Gir
+              </button>
+            </div>
+
+            {/* İçerik */}
+            <div className="p-6">
+              
+              {manualInputStyle === 'tkgm' && (
+                <div className="text-center space-y-4">
+                  <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-500/10 p-3 rounded border border-blue-500/20 mb-4 text-left">
+                    <p>Tapu ve Kadastro Genel Müdürlüğü (TKGM) sisteminden indirdiğiniz <b>.json</b> veya <b>.kml</b> formatındaki parsel sınır dosyalarını buradan yükleyebilirsiniz.</p>
+                  </div>
+                  <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
+                    <Upload size={40} className="mb-3 text-gray-500" />
+                    <button 
+                      onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
+                      className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
+                    >
+                      TKGM Dosyası Seç (.json)
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {manualInputStyle === 'geojson' && (
+                <div className="text-center space-y-4">
+                   <div className="flex items-start gap-2 text-xs text-emerald-400 bg-emerald-500/10 p-3 rounded border border-emerald-500/20 mb-4 text-left">
+                    <p>QGIS, ArcGIS, NetCAD gibi CBS yazılımlarından dışa aktardığınız standart <b>.geojson</b> dosyalarınızı buradan yükleyebilirsiniz.</p>
+                  </div>
+                  <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
+                    <Upload size={40} className="mb-3 text-gray-500" />
+                    <button 
+                      onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
+                    >
+                      GeoJSON Dosyası Seç
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {manualInputStyle === 'manual' && (
+                <div className="space-y-4 flex flex-col h-full">
+                  <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 p-3 rounded border border-amber-500/20">
+                    <Database size={16} className="shrink-0 mt-0.5" />
+                    <p>El ile koordinat girebilir veya ham GeoJSON kodunuzu buraya yapıştırabilirsiniz. <span className="text-gray-300 font-mono">Polygon</span> formatında olmalıdır.</p>
+                  </div>
+                  
+                  <textarea 
+                    className="w-full h-48 bg-[#151515] border border-[#444] rounded-md p-3 text-xs font-mono text-gray-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none custom-scrollbar"
+                    placeholder='Örnek: { "type": "Polygon", "coordinates": [ [ [32.85, 39.92], [32.86, 39.92], [32.86, 39.93], [32.85, 39.92] ] ] }'
+                    value={manualGeoJson}
+                    onChange={(e) => setManualGeoJson(e.target.value)}
+                  ></textarea>
+                  
+                  <div className="flex justify-end gap-3 mt-2">
+                    <button 
+                      onClick={() => setIsUploadModalOpen(false)} 
+                      className="px-5 py-2 bg-[#333] hover:bg-[#444] text-gray-300 rounded-md text-sm font-semibold cursor-pointer transition-colors"
+                    >
+                      İptal
+                    </button>
+                    <button 
+                      onClick={handleManualSubmit}
+                      disabled={uploading}
+                      className={`px-6 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors ${
+                        uploading ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                      }`}
+                    >
+                      {uploading ? 'İşleniyor...' : 'Koordinatları Haritaya Ekle'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
-        )}
-      </div>
-
-    </div>
-  </div>
-)}
-
-
+        </div>
+      )}
     </div>
   );
 }
