@@ -14,19 +14,19 @@ interface ParcelSidebarProps {
 const TreeNode = ({ title, icon, defaultOpen = false, children, rightElement }: any) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
-    <div className="border-l border-[#444] ml-3 pl-2 mt-1">
+    <div className="border-l-2 border-slate-700/50 ml-3 pl-3 mt-2">
       <div 
-        className="flex items-center justify-between cursor-pointer hover:bg-[#333] p-1.5 rounded transition-colors group"
+        className="flex items-center justify-between cursor-pointer hover:bg-slate-700/50 p-2 rounded-md transition-all group"
         onClick={() => setIsOpen(!isOpen)}
       >
-        <div className="flex items-center gap-1.5 text-gray-300">
-          {isOpen ? <ChevronDown size={14} className="text-gray-500" /> : <ChevronRight size={14} className="text-gray-500" />}
+        <div className="flex items-center gap-2 text-slate-200">
+          {isOpen ? <ChevronDown size={16} className="text-slate-400" /> : <ChevronRight size={16} className="text-slate-400" />}
           {icon}
-          <span className="text-xs font-medium font-mono">{title}</span>
+          <span className="text-sm font-semibold tracking-wide">{title}</span>
         </div>
         {rightElement && <div>{rightElement}</div>}
       </div>
-      {isOpen && <div className="ml-2 mt-1 space-y-1">{children}</div>}
+      {isOpen && <div className="ml-4 mt-2 space-y-2">{children}</div>}
     </div>
   );
 };
@@ -37,88 +37,93 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
   const title = parcel.ada_parsel ? `Ada/Parsel: ${parcel.ada_parsel}` : parcel.name;
 
   return (
-    <div className="absolute top-0 left-0 h-full w-80 bg-[#252526]/95 backdrop-blur-md border-r border-[#3c3c3c] shadow-2xl z-[500] flex flex-col text-gray-200 select-none transform transition-transform duration-300">
+    <div className="absolute top-0 left-0 h-full w-[350px] bg-slate-900 border-r border-slate-700 shadow-2xl z-[500] flex flex-col text-slate-200 select-none transform transition-transform duration-300">
       
-      <div className="p-4 border-b border-[#3c3c3c] bg-[#1e1e1e] flex justify-between items-start">
+      {/* Üst Bilgi Başlığı */}
+      <div className="p-5 border-b border-slate-700 bg-slate-800/80 flex justify-between items-start">
         <div>
-          <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-400 uppercase tracking-widest mb-1">
-            <Layers size={12} /> Seçili Obje
+          <div className="flex items-center gap-1.5 text-xs font-bold text-blue-400 uppercase tracking-widest mb-1.5">
+            <Layers size={14} /> Seçili Parsel Bilgisi
           </div>
-          <h2 className="text-lg font-bold font-mono text-gray-100 leading-tight">{title}</h2>
-          <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1">
-            <MapPin size={10} /> Durum: {parcel.status || 'Aktif'}
+          <h2 className="text-lg font-bold text-slate-50 leading-tight">{title}</h2>
+          <p className="text-xs text-slate-400 mt-2 flex items-center gap-1.5">
+            <MapPin size={12} /> Durum: <span className="text-slate-200 font-medium">{parcel.status || 'Aktif'}</span>
           </p>
         </div>
-        <button onClick={onClose} className="text-gray-500 hover:text-white hover:bg-red-500/20 p-1 rounded transition-colors cursor-pointer">
-          <X size={18} />
+        <button onClick={onClose} className="text-slate-400 hover:text-white hover:bg-red-500/20 p-1.5 rounded-md transition-colors cursor-pointer">
+          <X size={20} />
         </button>
       </div>
 
-      <div className="p-3 border-b border-[#3c3c3c] bg-[#2d2d2d] flex gap-2">
+      {/* Aksiyon Butonu */}
+      <div className="p-4 border-b border-slate-700 bg-slate-800/40">
         <button 
           onClick={onManage}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white py-1.5 rounded text-xs font-bold transition-colors cursor-pointer shadow-md"
+          className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white py-2.5 rounded-md text-sm font-bold transition-colors shadow-sm"
         >
-          <Edit2 size={14} /> Detayları Yönet
+          <Edit2 size={16} /> Paneli Aç ve Yönet
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar p-3 space-y-4">
+      {/* Ağaç İçeriği */}
+      <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-6">
         
+        {/* Mülkiyet Bilgileri */}
         <div>
-          <div className="text-[10px] font-bold uppercase text-gray-500 border-b border-[#444] pb-1 mb-2">Mülkiyet Bilgileri</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700 pb-2 mb-3">Mülkiyet Bilgileri</div>
           {(!parcel.owners || parcel.owners.length === 0) ? (
-            <p className="text-[10px] text-gray-600 italic pl-2">Kayıtlı malik yok.</p>
+            <p className="text-sm text-slate-500 italic pl-2 bg-slate-800/50 p-3 rounded-md">Kayıtlı malik bulunmamaktadır.</p>
           ) : (
             parcel.owners.map((owner: any) => (
-              <TreeNode key={owner.id} title={owner.name} icon={<User size={12} className="text-purple-400"/>} defaultOpen={true}
-                rightElement={<span className="text-[9px] text-purple-400 border border-purple-500/30 px-1 rounded bg-purple-500/10">%{owner.share_percentage}</span>}
+              <TreeNode key={owner.id} title={owner.name} icon={<User size={14} className="text-indigo-400"/>} defaultOpen={true}
+                rightElement={<span className="text-xs font-mono font-bold text-indigo-300 border border-indigo-500/30 px-2 py-0.5 rounded bg-indigo-500/10">%{owner.share_percentage}</span>}
               >
-                <div className="text-[9px] text-gray-400 pl-6 space-y-0.5">
-                  <p>Tip: {owner.type}</p>
-                  {owner.tc_vkn && <p>VKN/TC: {owner.tc_vkn}</p>}
+                <div className="text-xs text-slate-400 pl-8 space-y-1 bg-slate-800/30 p-2 rounded-md border border-slate-700/50">
+                  <p><span className="font-semibold text-slate-300">Kurum/Şahıs Tipi:</span> {owner.type}</p>
+                  {owner.tc_vkn && <p><span className="font-semibold text-slate-300">VKN/TC:</span> {owner.tc_vkn}</p>}
                 </div>
               </TreeNode>
             ))
           )}
         </div>
 
+        {/* Fiziksel Hiyerarşi */}
         <div>
-          <div className="text-[10px] font-bold uppercase text-gray-500 border-b border-[#444] pb-1 mb-2">Fiziksel Hiyerarşi (Katmanlar)</div>
+          <div className="text-xs font-bold uppercase tracking-wider text-slate-400 border-b border-slate-700 pb-2 mb-3">Fiziksel Yapı Hiyerarşisi</div>
           {(!parcel.structures || parcel.structures.length === 0) ? (
-             <p className="text-[10px] text-gray-600 italic pl-2">Geometri içinde tanımlı yapı yok.</p>
+             <p className="text-sm text-slate-500 italic pl-2 bg-slate-800/50 p-3 rounded-md">Geometri içinde tanımlı yapı bulunmamaktadır.</p>
           ) : (
             parcel.structures.map((structure: any) => (
-              <TreeNode key={structure.id} title={structure.name} icon={<Building size={12} className="text-blue-400"/>} defaultOpen={true}>
+              <TreeNode key={structure.id} title={structure.name} icon={<Building size={14} className="text-blue-400"/>} defaultOpen={true}>
                 
                 {(!structure.units || structure.units.length === 0) ? (
-                  // YENİ: İÇ BİRİM YERİNE BAĞIMSIZ BÖLÜM YAZDIK
-                  <p className="text-[9px] text-gray-600 italic pl-6">Bağımsız bölüm yok.</p>
+                  <p className="text-xs text-slate-500 italic pl-8">Bağımsız bölüm bulunmamaktadır.</p>
                 ) : (
                   structure.units.map((unit: any) => (
-                    // YENİ: BB NO VE NİTELİĞİ DAHA OKUNAKLI FORMATTA GÖSTERİYORUZ
-                    <TreeNode key={unit.id} title={`BB No: ${unit.unit_no} (${unit.name})`} icon={<DoorOpen size={12} className="text-amber-400"/>} defaultOpen={true}>
+                    <TreeNode key={unit.id} title={`BB No: ${unit.unit_no} (${unit.name})`} icon={<DoorOpen size={14} className="text-amber-400"/>} defaultOpen={true}>
                       
                       {(!unit.occupants || unit.occupants.length === 0) ? (
-                        <p className="text-[9px] text-gray-600 italic pl-6">İşletme/Kiracı atanmamış.</p>
+                        <p className="text-xs text-slate-500 italic pl-8">İşletme/Kiracı atanmamış.</p>
                       ) : (
-                        unit.occupants.map((occ: any) => (
-                          <div key={occ.id} className="pl-6 py-1 flex flex-col gap-0.5">
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 text-[10px] text-gray-300">
-                                <Users size={10} className="text-gray-400"/> {occ.name}
+                        <div className="space-y-2">
+                          {unit.occupants.map((occ: any) => (
+                            <div key={occ.id} className="ml-8 pl-3 py-2 border-l-2 border-slate-600 bg-slate-800/40 rounded-r-md flex flex-col gap-1.5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-sm font-medium text-slate-200">
+                                  <Users size={12} className="text-slate-400"/> {occ.name}
+                                </div>
+                                <span className="text-[10px] uppercase font-bold tracking-wider bg-slate-700 px-1.5 py-0.5 rounded text-slate-300 border border-slate-600">{occ.role}</span>
                               </div>
-                              <span className="text-[8px] bg-[#333] px-1 rounded text-gray-400">{occ.role}</span>
+                              <div className="flex items-center gap-1.5 text-xs font-medium">
+                                {occ.has_work_license ? (
+                                  <span className="text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20 w-fit"><CheckCircle2 size={12}/> Çalışma Ruhsatı Var</span>
+                                ) : (
+                                  <span className="text-rose-400 flex items-center gap-1.5 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 w-fit"><ShieldAlert size={12}/> Ruhsatsız İşletme</span>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-1 pl-4 text-[9px]">
-                              {occ.has_work_license ? (
-                                <span className="text-green-400 flex items-center gap-1"><CheckCircle2 size={9}/> Ruhsatlı</span>
-                              ) : (
-                                <span className="text-red-400 flex items-center gap-1"><ShieldAlert size={9}/> Ruhsatsız</span>
-                              )}
-                            </div>
-                          </div>
-                        ))
+                          ))}
+                        </div>
                       )}
 
                     </TreeNode>
