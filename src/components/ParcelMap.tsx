@@ -10,7 +10,7 @@ import 'leaflet-draw/dist/leaflet.draw.css';
 // Haritayı verilen sınırlara otomatik odaklayan yardımcı bileşen
 function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
   const map = useMap();
-  
+
   useEffect(() => {
     if (bounds && bounds.isValid()) {
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 18 });
@@ -24,7 +24,7 @@ function MapBoundsController({ bounds }: { bounds: L.LatLngBounds | null }) {
 function ZoomListener({ setCurrentZoom }: { setCurrentZoom: (zoom: number) => void }) {
   const map = useMap();
   useEffect(() => {
-    setCurrentZoom(map.getZoom()); 
+    setCurrentZoom(map.getZoom());
     const onZoomEnd = () => setCurrentZoom(map.getZoom());
     map.on('zoomend', onZoomEnd);
     return () => {
@@ -43,15 +43,15 @@ interface ParcelMapProps {
 }
 
 export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId, onOpenAdmin, refreshTrigger }: ParcelMapProps) {
-  const defaultCenter: [number, number] = [39.92077, 32.85411]; 
-  const [currentZoom, setCurrentZoom] = useState<number>(6); 
+  const defaultCenter: [number, number] = [39.92077, 32.85411];
+  const [currentZoom, setCurrentZoom] = useState<number>(6);
   const [parcels, setParcels] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  
+
   const [mapBounds, setMapBounds] = useState<L.LatLngBounds | null>(null);
-  const [uploading, setUploading] = useState<boolean>(false); 
+  const [uploading, setUploading] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const mapRef = useRef<L.Map>(null); 
+  const mapRef = useRef<L.Map>(null);
 
   // --- YENİ EKLENEN STATE'LER VE FONKSİYONLAR ---
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -64,7 +64,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
     try {
       setUploading(true);
       const geojsonData = JSON.parse(manualGeoJson);
-      
+
       let featuresToUpload: any[] = [];
       if (geojsonData.type === 'FeatureCollection' && Array.isArray(geojsonData.features)) {
         featuresToUpload = geojsonData.features;
@@ -130,10 +130,10 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
           data.forEach((parcel: any) => {
             if (parcel.geometry && (parcel.geometry.type === 'Polygon' || parcel.geometry.type === 'MultiPolygon')) {
               try {
-                const coords = parcel.geometry.type === 'Polygon' 
-                  ? parcel.geometry.coordinates[0] 
-                  : parcel.geometry.coordinates[0][0]; 
-                  
+                const coords = parcel.geometry.type === 'Polygon'
+                  ? parcel.geometry.coordinates[0]
+                  : parcel.geometry.coordinates[0][0];
+
                 if (Array.isArray(coords)) {
                   coords.forEach(([lng, lat]: [number, number]) => {
                     if (lat && lng) latLngs.push(L.latLng(lat, lng));
@@ -151,18 +151,18 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
       })
       .catch((err) => {
         console.error('Parseller yüklenirken hata oluştu:', err);
-        setParcels([]); 
-        setLoading(false); 
+        setParcels([]);
+        setLoading(false);
       });
   };
 
   useEffect(() => {
-    fetchParcels(true); 
+    fetchParcels(true);
   }, []);
 
   useEffect(() => {
     // refreshTrigger 0 ise ilk yüklemedir (haritayı ortala), 0'dan büyükse sadece veriyi güncelle
-    fetchParcels(refreshTrigger === 0); 
+    fetchParcels(refreshTrigger === 0);
   }, [refreshTrigger]);
 
   const handleCreated = async (e: any) => {
@@ -170,7 +170,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
     if (layerType === 'polygon') {
       const geojsonData = layer.toGeoJSON();
       console.log('Yeni Çizilen Parsel Geometrisi:', geojsonData.geometry);
-      
+
       try {
         const response = await fetch('/api/parcels', {
           method: 'POST',
@@ -187,14 +187,14 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         });
 
         if (!response.ok) throw new Error('Veritabanına kayıt başarısız.');
-        fetchParcels(false); 
+        fetchParcels(false);
       } catch (err) {
         console.error("Manuel çizim kaydı hatası:", err);
       }
     }
   };
 
-  
+
   // ... diğer kodlar
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -228,7 +228,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         } else if (geojsonData.type === 'Polygon' || geojsonData.type === 'MultiPolygon') {
           featuresToUpload = [{ type: 'Feature', geometry: geojsonData, properties: {} }];
         } else if (Array.isArray(geojsonData)) {
-           throw new Error("Dosya sadece dizi (Array) içeriyor. Lütfen geçerli bir GeoJSON nesnesi (.geojson) yükleyin.");
+          throw new Error("Dosya sadece dizi (Array) içeriyor. Lütfen geçerli bir GeoJSON nesnesi (.geojson) yükleyin.");
         } else {
           throw new Error('Desteklenmeyen format. Dosyanızın tipi "FeatureCollection", "Feature" veya "Polygon" olmalıdır.');
         }
@@ -244,7 +244,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
           if (!feature.geometry) continue;
 
           const props = feature.properties || {};
-          
+
           let adaParsel = props.ada_parsel || null;
           if (!adaParsel && props.Ada && props.ParselNo) {
             adaParsel = `${props.Ada}/${props.ParselNo}`;
@@ -262,14 +262,14 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
           if (feature.geometry.type === 'Polygon') {
             feature.geometry.coordinates[0].forEach(([lng, lat]: [number, number]) => {
-              if(lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
+              if (lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
             });
           } else if (feature.geometry.type === 'MultiPolygon') {
-             feature.geometry.coordinates.forEach((polygon: any[]) => {
-                polygon[0].forEach(([lng, lat]: [number, number]) => {
-                   if(lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
-                });
-             });
+            feature.geometry.coordinates.forEach((polygon: any[]) => {
+              polygon[0].forEach(([lng, lat]: [number, number]) => {
+                if (lat && lng) uploadedLatLngs.push(L.latLng(lat, lng));
+              });
+            });
           }
 
           const response = await fetch('/api/parcels', {
@@ -293,12 +293,12 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
             const errData = await response.json().catch(() => ({}));
             throw new Error(`Veritabanı Kayıt Hatası: ${errData.error || response.statusText}`);
           }
-          
+
           successCount++;
         }
 
         if (successCount === 0) {
-           throw new Error('Parsellerin geometrisi çıkarılamadı. Sadece Poligon (Alan) desteklenmektedir.');
+          throw new Error('Parsellerin geometrisi çıkarılamadı. Sadece Poligon (Alan) desteklenmektedir.');
         }
 
         if (uploadedLatLngs.length > 0) {
@@ -306,21 +306,21 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         }
 
         alert(`${successCount} adet parsel başarıyla işlendi ve haritaya eklendi.`);
-        fetchParcels(false); 
+        fetchParcels(false);
         setIsUploadModalOpen(false); // Modal'ı veriler yüklendikten SONRA kapatıyoruz.
-        
+
       } catch (err: any) {
         console.error('GeoJSON İşleme Hatası:', err);
         alert(`❌ PARSEL YÜKLEME BAŞARISIZ!\n\nSebep: ${err.message}`);
       } finally {
         setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = ''; 
+        if (fileInputRef.current) fileInputRef.current.value = '';
       }
     };
 
     reader.onerror = () => {
-       setUploading(false);
-       alert("❌ Dosya okuma sırasında bir hata oluştu.");
+      setUploading(false);
+      alert("❌ Dosya okuma sırasında bir hata oluştu.");
     };
 
     reader.readAsText(file);
@@ -345,13 +345,13 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
   return (
     <div className="w-full h-full flex flex-col relative z-0">
       <header className="bg-[#1a2d42] border-b border-[#12202f] px-4 py-2.5 flex flex-wrap items-center justify-between shadow-md z-[400] relative select-none text-white">
-        
+
         {/* SOL: Logo ve Kurumsal Başlık */}
         <div className="flex items-center gap-3">
           <div className="bg-white p-1 rounded h-9 w-9 flex items-center justify-center shadow-sm">
-            <img 
-              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
-              alt="OSB Logo" 
+            <img
+              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png"
+              alt="OSB Logo"
               className="max-h-full max-w-full object-contain"
             />
           </div>
@@ -364,18 +364,17 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         {/* ORTA & SAĞ: Aksiyon Butonları (Aksiyon Yeşili ve Beyaz Nötr) */}
         <div className="flex items-center gap-2 mt-2 sm:mt-0">
           <input type="file" ref={fileInputRef} accept=".geojson,.json" onChange={handleFileUpload} className="hidden" />
-          
-          <button 
+
+          <button
             onClick={() => setIsUploadModalOpen(true)}
             disabled={uploading}
-            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded shadow-sm transition-colors ${
-              uploading ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#5cb85c] hover:bg-[#4cae4c] text-white cursor-pointer'
-            }`}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded shadow-sm transition-colors ${uploading ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#5cb85c] hover:bg-[#4cae4c] text-white cursor-pointer'
+              }`}
           >
-            <Upload size={16} /> <span className="hidden md:inline">{uploading ? 'İşleniyor...' : 'Veri Yükle'}</span>
+            <Upload size={16} /> <span className="hidden md:inline">{uploading ? 'İşleniyor...' : 'Parsel Sınırları Ekle'}</span>
           </button>
 
-          <button 
+          <button
             onClick={handleFitBounds}
             className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-[#1a2d42] text-sm font-bold rounded shadow-sm border border-gray-300 transition-colors cursor-pointer"
           >
@@ -384,7 +383,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
           <div className="w-px h-6 bg-gray-600 mx-1 hidden sm:block"></div>
 
-          <button 
+          <button
             onClick={onOpenAdmin}
             className="flex items-center gap-2 bg-[#3a87ad] hover:bg-[#2e6d8c] text-white px-4 py-2 rounded text-sm font-bold shadow-sm transition-colors cursor-pointer"
           >
@@ -395,9 +394,9 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
       {/* Harita / Çizim Alanı */}
       <div className="flex-1 w-full h-full bg-[#1e1e1e]">
-        <MapContainer 
+        <MapContainer
           center={defaultCenter}
-          zoom={6} 
+          zoom={6}
           ref={mapRef}
           zoomControl={false} // YENİ: Varsayılan sol-üst zoom kontrolünü kaldırdık.
           style={{ height: '100%', width: '100%', background: '#242424' }}
@@ -439,7 +438,7 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
           {/* PARSELLERİ ÇİZDİRDİĞİMİZ KISIM */}
           {parcels.map((parcel) => {
             if (!parcel.geometry) return null;
-            
+
             const geoJsonFeature: any = {
               type: "Feature",
               properties: parcel,
@@ -454,11 +453,11 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
             return (
               <GeoJSON
-                key={`parcel-${parcel.id}-${isSelected}`} 
+                key={`parcel-${parcel.id}-${isSelected}`}
                 data={geoJsonFeature}
                 style={{
                   // Kurumsal Renk Paleti: Seçili ise Bordo/Kırmızı (#8b0000), normal ise CBS Mavisi (#3a87ad)
-                  color: isSelected ? '#8b0000' : '#3a87ad', 
+                  color: isSelected ? '#8b0000' : '#3a87ad',
                   fillColor: isSelected ? '#8b0000' : '#3a87ad',
                   fillOpacity: isSelected ? 0.3 : 0.15,
                   weight: isSelected ? 3 : 2
@@ -512,106 +511,118 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
         </MapContainer>
       </div>
       {/* --- PARSEL YÜKLEME MODALI (POPUP) --- */}
-      {isUploadModalOpen && (
-        <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-lg overflow-hidden flex flex-col text-gray-200">
-            
-            {/* Modal Başlığı */}
-            <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#1e1e1e]">
-              <h3 className="font-bold flex items-center gap-2 text-blue-400">
-                <Upload size={18} /> Parsel Geometrisi Yükle
-              </h3>
-              <button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer bg-[#333] hover:bg-rose-500 p-1 rounded transition-colors">
-                <X size={18} />
-              </button>
-            </div>
+      {/* --- PARSEL YÜKLEME MODALI (POPUP) --- */}
+{isUploadModalOpen && (
+  <div className="absolute inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+    <div className="bg-[#252526] border border-[#444] rounded-lg shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col text-gray-200">
+      
+      {/* Modal Başlığı */}
+      <div className="p-4 border-b border-[#333] flex justify-between items-center bg-[#1e1e1e]">
+        <h3 className="font-bold flex items-center gap-2 text-blue-400">
+          <Upload size={18} /> Parsel Sınırları Ekle
+        </h3>
+        <button onClick={() => setIsUploadModalOpen(false)} className="text-gray-400 hover:text-white cursor-pointer bg-[#333] hover:bg-rose-500 p-1 rounded transition-colors">
+          <X size={18} />
+        </button>
+      </div>
 
-            {/* Sekmeler */}
-            <div className="flex border-b border-[#333] text-sm">
+      {/* Sekmeler */}
+      <div className="flex border-b border-[#333] text-sm">
+        <button 
+          onClick={() => setManualInputStyle('tkgm')} 
+          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'tkgm' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+        >
+          TKGM Dosyası Ekle
+        </button>
+        <button 
+          onClick={() => setManualInputStyle('geojson')} 
+          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'geojson' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+        >
+          GeoJSON Ekle
+        </button>
+        <button 
+          onClick={() => setManualInputStyle('manual')} 
+          className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'manual' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+        >
+          Manuel Koordinat Gir
+        </button>
+      </div>
+
+      {/* İçerik */}
+      <div className="p-6">
+        
+        {manualInputStyle === 'tkgm' && (
+          <div className="text-center space-y-4">
+            <div className="flex items-start gap-2 text-xs text-blue-400 bg-blue-500/10 p-3 rounded border border-blue-500/20 mb-4 text-left">
+              <p>Tapu ve Kadastro Genel Müdürlüğü (TKGM) sisteminden indirdiğiniz <b>.json</b> veya <b>.kml</b> formatındaki parsel sınır dosyalarını buradan yükleyebilirsiniz.</p>
+            </div>
+            <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
+              <Upload size={40} className="mb-3 text-gray-500" />
               <button 
-                onClick={() => setManualInputStyle('file')} 
-                className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'file' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
+                onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
               >
-                Dosyadan Yükle (.json)
-              </button>
-              <button 
-                onClick={() => setManualInputStyle('manual')} 
-                className={`flex-1 py-3 font-semibold transition-colors cursor-pointer ${manualInputStyle === 'manual' ? 'text-blue-400 border-b-2 border-blue-400 bg-[#2d2d2d]' : 'text-gray-400 hover:bg-[#2a2a2b]'}`}
-              >
-                Manuel Koordinat Gir
+                TKGM Dosyası Seç (.json)
               </button>
             </div>
-
-            {/* İçerik */}
-            <div className="p-6">
-              {manualInputStyle === 'file' ? (
-                <div className="text-center space-y-4">
-                  <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
-                    <Upload size={40} className="mb-3 text-gray-500" />
-                    <p className="text-sm text-gray-300 font-medium mb-1">Cihazınızdan GeoJSON dosyasını seçin</p>
-                    <p className="text-xs text-gray-500 mb-6">Sadece .json ve .geojson uzantılı dosyalar desteklenir.</p>
-                    <button 
-                      onClick={() => {
-                        setIsUploadModalOpen(false);
-                        fileInputRef.current?.click();
-                      }}
-                      className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
-                    >
-                      Bilgisayardan Gözat...
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4 flex flex-col h-full">
-                  <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 p-3 rounded border border-amber-500/20">
-                    <Database size={16} className="shrink-0 mt-0.5" />
-                    <p>Ham GeoJSON kodunuzu buraya yapıştırın. <span className="text-gray-300 font-mono">FeatureCollection</span>, <span className="text-gray-300 font-mono">Feature</span> veya sadece <span className="text-gray-300 font-mono">Polygon</span> formatında olabilir.</p>
-                  </div>
-                  
-                  <textarea 
-                    className="w-full h-48 bg-[#151515] border border-[#444] rounded-md p-3 text-xs font-mono text-gray-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none custom-scrollbar"
-                    placeholder='Örnek:
-{
-  "type": "FeatureCollection", 
-  "features": [
-    {
-      "type": "Feature",
-      "geometry": { "type": "Polygon", "coordinates": [...] }
-    }
-  ] 
-}'
-                    value={manualGeoJson}
-                    onChange={(e) => setManualGeoJson(e.target.value)}
-                  ></textarea>
-                  
-                  <div className="flex justify-end gap-3 mt-2">
-                    <button 
-                      onClick={() => setIsUploadModalOpen(false)} 
-                      className="px-5 py-2 bg-[#333] hover:bg-[#444] text-gray-300 rounded-md text-sm font-semibold cursor-pointer transition-colors"
-                    >
-                      İptal
-                    </button>
-                    <button 
-                      onClick={() => {
-                        if (!uploading) fileInputRef.current?.click();
-                      }}
-                      disabled={uploading}
-                      className={`px-6 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors ${
-                        uploading 
-                          ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
-                          : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
-                      }`}
-                    >
-                      {uploading ? 'İşleniyor...' : 'Bilgisayardan Gözat...'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
           </div>
-        </div>
-      )}
+        )}
+
+        {manualInputStyle === 'geojson' && (
+          <div className="text-center space-y-4">
+             <div className="flex items-start gap-2 text-xs text-emerald-400 bg-emerald-500/10 p-3 rounded border border-emerald-500/20 mb-4 text-left">
+              <p>QGIS, ArcGIS, NetCAD gibi CBS yazılımlarından dışa aktardığınız standart <b>.geojson</b> dosyalarınızı buradan yükleyebilirsiniz.</p>
+            </div>
+            <div className="bg-[#1e1e1e] p-8 rounded-lg border border-dashed border-[#555] flex flex-col items-center justify-center">
+              <Upload size={40} className="mb-3 text-gray-500" />
+              <button 
+                onClick={() => { setIsUploadModalOpen(false); fileInputRef.current?.click(); }}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-md text-sm font-bold shadow-md cursor-pointer transition-colors"
+              >
+                GeoJSON Dosyası Seç
+              </button>
+            </div>
+          </div>
+        )}
+
+        {manualInputStyle === 'manual' && (
+          <div className="space-y-4 flex flex-col h-full">
+            <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-500/10 p-3 rounded border border-amber-500/20">
+              <Database size={16} className="shrink-0 mt-0.5" />
+              <p>El ile koordinat girebilir veya ham GeoJSON kodunuzu buraya yapıştırabilirsiniz. <span className="text-gray-300 font-mono">Polygon</span> formatında olmalıdır.</p>
+            </div>
+            
+            <textarea 
+              className="w-full h-48 bg-[#151515] border border-[#444] rounded-md p-3 text-xs font-mono text-gray-300 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none custom-scrollbar"
+              placeholder='Örnek: { "type": "Polygon", "coordinates": [ [ [32.85, 39.92], [32.86, 39.92], [32.86, 39.93], [32.85, 39.92] ] ] }'
+              value={manualGeoJson}
+              onChange={(e) => setManualGeoJson(e.target.value)}
+            ></textarea>
+            
+            <div className="flex justify-end gap-3 mt-2">
+              <button 
+                onClick={() => setIsUploadModalOpen(false)} 
+                className="px-5 py-2 bg-[#333] hover:bg-[#444] text-gray-300 rounded-md text-sm font-semibold cursor-pointer transition-colors"
+              >
+                İptal
+              </button>
+              <button 
+                onClick={handleManualSubmit}
+                disabled={uploading}
+                className={`px-6 py-2.5 rounded-md text-sm font-bold shadow-md transition-colors ${
+                  uploading ? 'bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white cursor-pointer'
+                }`}
+              >
+                {uploading ? 'İşleniyor...' : 'Koordinatları Haritaya Ekle'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+    </div>
+  </div>
+)}
 
 
     </div>
