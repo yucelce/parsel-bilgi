@@ -459,8 +459,8 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
                         )}
                       </div>
                     </div>
-                  ))}
-                </div>
+                  ))
+                )}
               </div>
             </div>
           </>
