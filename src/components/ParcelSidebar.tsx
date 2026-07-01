@@ -48,18 +48,30 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
           <h2 className="text-lg font-bold text-slate-50 leading-tight">{title}</h2>
           
           {/* YENİ GÜNCELLENEN DURUM VE ALAN BİLGİSİ SATIRI */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
-            <p className="text-xs text-slate-400 flex items-center gap-1.5">
-              <MapPin size={12} className="text-slate-500" /> Durum: <span className="text-slate-200 font-medium">{parcel.status || 'Aktif'}</span>
-            </p>
-            <span className="text-slate-600 hidden sm:block">•</span>
-            <p className="text-xs text-slate-400 flex items-center gap-1.5">
-              Alan: 
-              <span className="text-slate-200 font-bold bg-slate-700/50 px-1.5 py-0.5 rounded border border-slate-600">
-                {parcel.calculated_area_m2 ? `${parcel.calculated_area_m2} m²` : 'Bilinmiyor'}
-              </span>
-            </p>
-          </div>
+          {/* İSTATİSTİK KARTLARI (Kompakt Tek Satır) */}
+              <div className="flex flex-wrap items-center gap-6 px-5 py-2.5 bg-slate-800/50 border-b border-slate-700 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Fiziksel Yapı:</span>
+                  <span className="font-bold text-blue-400">{stats.totalStructures}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Bağımsız Birim:</span>
+                  <span className="font-bold text-indigo-400">{stats.totalUnits}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Aktif İşletme:</span>
+                  <span className="font-bold text-amber-400">{stats.totalOccupants}</span>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Ruhsat Oranı:</span>
+                  <span className={`font-bold ${stats.licenseRate === 100 ? 'text-emerald-400' : stats.licenseRate > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                    %{stats.licenseRate}
+                  </span>
+                </div>
+              </div>
         </div>
         <button onClick={onClose} className="text-slate-400 hover:text-white hover:bg-red-500/20 p-1.5 rounded-md transition-colors cursor-pointer">
           <X size={20} />
