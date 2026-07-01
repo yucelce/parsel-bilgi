@@ -344,72 +344,53 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
 
   return (
     <div className="w-full h-full flex flex-col relative z-0">
-      <header className="bg-[#252526] border-b border-[#333] px-4 py-2 flex items-center justify-between shadow-md z-[400] relative select-none">
+      <header className="bg-[#1a2d42] border-b border-[#12202f] px-4 py-2.5 flex flex-wrap items-center justify-between shadow-md z-[400] relative select-none text-white">
         
-        {/* SOL: Logo ve Uygulama Adı */}
+        {/* SOL: Logo ve Kurumsal Başlık */}
         <div className="flex items-center gap-3">
-          <div className="bg-white p-1 rounded-md shadow-sm h-9 w-9 flex items-center justify-center">
+          <div className="bg-white p-1 rounded h-9 w-9 flex items-center justify-center shadow-sm">
             <img 
               src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
               alt="OSB Logo" 
               className="max-h-full max-w-full object-contain"
             />
           </div>
-          <div className="hidden sm:block">
-            <h1 className="text-sm font-bold tracking-wide text-gray-100 leading-tight">OSB PARSEL BİLGİ SİSTEMİ</h1>
-            <p className="text-[9px] text-gray-400 uppercase tracking-wider">CAD Viewport v1.0</p>
+          <div>
+            <h1 className="text-[14px] font-bold tracking-wide leading-tight">OSB PARSEL BİLGİ SİSTEMİ</h1>
+            <p className="text-[10px] text-gray-300">Coğrafi Bilgi Sistemi Yöneticisi</p>
           </div>
         </div>
 
-        {/* ORTA: Yükleme ve Odaklanma Araçları */}
-        <div className="flex items-center gap-2">
-          <input 
-            type="file" 
-            ref={fileInputRef}
-            accept=".geojson,.json" 
-            onChange={handleFileUpload} 
-            className="hidden" 
-          />
+        {/* ORTA & SAĞ: Aksiyon Butonları (Aksiyon Yeşili ve Beyaz Nötr) */}
+        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+          <input type="file" ref={fileInputRef} accept=".geojson,.json" onChange={handleFileUpload} className="hidden" />
           
           <button 
             onClick={() => setIsUploadModalOpen(true)}
             disabled={uploading}
-            title="Sisteme dosya veya manuel koordinat ile parsel yükle"
-            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded border transition-colors ${
-              uploading 
-                ? 'bg-[#444] text-gray-500 border-[#555] cursor-not-allowed' 
-                : 'bg-[#3c3c3c] hover:bg-blue-600 active:bg-blue-700 text-white border-[#555] cursor-pointer shadow-sm'
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded shadow-sm transition-colors ${
+              uploading ? 'bg-gray-500 cursor-not-allowed' : 'bg-[#5cb85c] hover:bg-[#4cae4c] text-white cursor-pointer'
             }`}
           >
-            <Upload size={14} />
-            {uploading ? 'İşleniyor...' : 'Parsel Poligonu Yükle'}
+            <Upload size={16} /> <span className="hidden md:inline">{uploading ? 'İşleniyor...' : 'Veri Yükle'}</span>
           </button>
-
-          <div className="w-px h-5 bg-[#555] mx-1"></div>
 
           <button 
             onClick={handleFitBounds}
-            title="Tüm parselleri ekrana sığdıracak şekilde kamerayı ayarla"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3c3c3c] hover:bg-[#505050] active:bg-[#2d2d2d] text-gray-200 text-xs font-bold rounded border border-[#555] transition-colors cursor-pointer"
+            className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-gray-100 text-[#1a2d42] text-sm font-bold rounded shadow-sm border border-gray-300 transition-colors cursor-pointer"
           >
-            <Focus size={14} />
-            Parsellere Odaklan
+            <Focus size={16} /> <span className="hidden md:inline">Sınırlara Odaklan</span>
           </button>
-        </div>
 
-        {/* SAĞ: Koordinat Bilgisi ve Yönetim Paneli */}
-        <div className="flex items-center gap-4">
-          <div className="text-[10px] text-gray-500 font-mono hidden md:block">
-            Koordinat Sistemi: EPSG:4326 (WGS84)
-          </div>
+          <div className="w-px h-6 bg-gray-600 mx-1 hidden sm:block"></div>
+
           <button 
             onClick={onOpenAdmin}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded text-xs font-bold shadow-md transition-colors cursor-pointer"
+            className="flex items-center gap-2 bg-[#3a87ad] hover:bg-[#2e6d8c] text-white px-4 py-2 rounded text-sm font-bold shadow-sm transition-colors cursor-pointer"
           >
-            <Database size={14} /> Tüm Sistemi Yönet
+            <Database size={16} /> <span className="hidden sm:inline">Sistemi Yönet</span>
           </button>
         </div>
-
       </header>
 
       {/* Harita / Çizim Alanı */}
@@ -476,9 +457,10 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
                 key={`parcel-${parcel.id}-${isSelected}`} 
                 data={geoJsonFeature}
                 style={{
-                  color: isSelected ? '#facc15' : '#4ade80', // Seçiliyse Sarı, değilse Yeşil
-                  fillColor: isSelected ? '#fef08a' : '#22c55e',
-                  fillOpacity: isSelected ? 0.4 : 0.25,
+                  // Kurumsal Renk Paleti: Seçili ise Bordo/Kırmızı (#8b0000), normal ise CBS Mavisi (#3a87ad)
+                  color: isSelected ? '#8b0000' : '#3a87ad', 
+                  fillColor: isSelected ? '#8b0000' : '#3a87ad',
+                  fillOpacity: isSelected ? 0.3 : 0.15,
                   weight: isSelected ? 3 : 2
                 }}
                 eventHandlers={{

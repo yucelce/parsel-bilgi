@@ -1,25 +1,30 @@
 @import "tailwindcss";
 
-.parcel-center-label {
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  color: #ffffff;
-  font-weight: 700;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.9), -1px -1px 2px rgba(0,0,0,0.9), 1px -1px 2px rgba(0,0,0,0.9), -1px 1px 2px rgba(0,0,0,0.9);
-  text-align: center;
-  padding: 0 !important;
-  line-height: 1.1;
-  pointer-events: none; /* Etiketlere tıklanmasını engelle (altındaki parsele tıklanabilsin) */
+/* Kurumsal CBS Harita Altlığı */
+.leaflet-container {
+  background-color: #f4f6f8 !important; /* Açık gri harita boşluğu */
+}
 
-  /* YENİ EKLENEN/DÜZELTİLEN KISIM */
-  min-width: 60px; /* Kutu çok daralıp sayıları bölmesin diye alt sınır */
-  max-width: 150px; /* % yerine px verdik, çok uzun metinlerin genişlemesini durdurur */
+/* Tooltip (Bilgi Balonu) - Açık Tema & Gölgeli */
+.parcel-center-label {
+  background-color: #ffffff !important;
+  border: 1px solid #cccccc !important;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+  color: #333333;
+  font-weight: 700;
+  text-shadow: none !important;
+  text-align: center;
+  padding: 4px 8px !important;
+  line-height: 1.2;
+  pointer-events: none;
+  border-radius: 4px;
+
+  min-width: 60px;
+  max-width: 150px;
   white-space: normal !important;
-  word-wrap: normal; /* Kelime ortasından/sayı ortasından bölmeyi engeller */
+  word-wrap: normal;
   word-break: keep-all; 
   
-  /* En fazla 2 satır kısıtlaması (3. satıra geçerse ... koyar) */
   display: -webkit-box;
   -webkit-line-clamp: 2;
   line-clamp: 2;
@@ -27,16 +32,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Standart Tooltip okunu (üçgenini) gizle */
+
 .parcel-center-label::before {
-  display: none !important;
+  display: none !important; /* Standart üçgeni gizle */
 }
 
-/* Zoom Seviyesine Göre Dinamik Yazı Boyutları */
-.zoom-level-14 { font-size: 0.6rem; }
-.zoom-level-15 { font-size: 0.7rem; }
-.zoom-level-16 { font-size: 0.8rem; }
-.zoom-level-17 { font-size: 0.9rem; }
-.zoom-level-18 { font-size: 1rem; }
-.zoom-level-19 { font-size: 1.1rem; }
-
+/* Dinamik Yazı Boyutları */
+.zoom-level-14 { font-size: 0.65rem; }
+.zoom-level-15 { font-size: 0.75rem; }
+.zoom-level-16 { font-size: 0.85rem; }
+.zoom-level-17 { font-size: 0.95rem; }
+.zoom-level-18 { font-size: 1.05rem; }
+.zoom-level-19 { font-size: 1.15rem; }
