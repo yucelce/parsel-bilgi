@@ -1,4 +1,4 @@
-// src/components/ParcelMap.tsx
+// src/components/ParcelMap.tsx -- PROGRAMI HEP GELİŞTİRECEK ŞEKİLDE KOD YAZ
 import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, FeatureGroup, GeoJSON, Tooltip, useMap, LayersControl, ZoomControl } from 'react-leaflet';
 import { EditControl } from 'react-leaflet-draw';

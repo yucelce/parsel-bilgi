@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import {
   X, Search, Plus, Building, Users, Phone, Mail,
   FileCheck, Trash2, DoorOpen, ShieldAlert, BarChart3,
-  Layers, CheckCircle2, AlertTriangle, Building2, Map
+  Layers, CheckCircle2, AlertTriangle, Building2, Map, User
 } from 'lucide-react';
 
 interface ManagementPanelProps {
@@ -13,39 +13,28 @@ interface ManagementPanelProps {
 }
 
 export default function ManagementPanel({ onClose, initialEditId,onDataChanged }: ManagementPanelProps) {
-  // --- STATE TANIMLAMALARI ---
+  // --- STATE TANIMLAMALARI (Aynı Bırakıldı) ---
   const [parcels, setParcels] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'empty' | 'unlicensed'>('all');
   const [selectedParcel, setSelectedParcel] = useState<any | null>(null);
   const hasInitializedEdit = useRef(false);
 
-  // Modal ve Atama State'leri
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [assignTarget, setAssignTarget] = useState<{ type: 'parcel' | 'unit', id: string } | null>(null);
   const [sharePercentage, setSharePercentage] = useState<number>(100);
 
-  // Paydaş (Firma/Kişi) State'leri
   const [entitiesList, setEntitiesList] = useState<any[]>([]);
   const [modalMode, setModalMode] = useState<'select' | 'create'>('select');
   const [selectedEntityId, setSelectedEntityId] = useState<string>('');
 
-  // Form State'leri
   const [entityForm, setEntityForm] = useState({
-    type: 'Şirket',
-    name: '',
-    tc_vkn: '',
-    tax_office: '',
-    phone: '',
-    email: '',
+    type: 'Şirket', name: '', tc_vkn: '', tax_office: '', phone: '', email: '',
   });
 
-  const [linkForm, setLinkForm] = useState({
-    role: 'Kiracı',
-    has_work_license: false
-  });
+  const [linkForm, setLinkForm] = useState({ role: 'Kiracı', has_work_license: false });
 
-  // --- API VERİ ÇEKME FONKSİYONLARI ---
+  // --- API VERİ ÇEKME FONKSİYONLARI (Aynı Bırakıldı) ---
   const fetchParcels = () => {
     fetch('/api/parcels')
       .then(res => {
@@ -65,38 +54,28 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
   };
 
   const fetchEntities = () => {
-    fetch('/api/entities')
-      .then(res => res.json())
-      .then(data => {
+    fetch('/api/entities').then(res => res.json()).then(data => {
         if (Array.isArray(data)) setEntitiesList(data);
-      })
-      .catch(err => console.error("Paydaş hatası:", err));
+      }).catch(err => console.error("Paydaş hatası:", err));
   };
 
-  useEffect(() => {
-    fetchParcels();
-    fetchEntities();
-  }, []);
+  useEffect(() => { fetchParcels(); fetchEntities(); }, []);
 
   useEffect(() => {
     if (initialEditId && parcels.length > 0 && !hasInitializedEdit.current) {
       const parcelToEdit = parcels.find(p => p.id === initialEditId);
-      if (parcelToEdit) {
-        setSelectedParcel(parcelToEdit);
-        hasInitializedEdit.current = true;
-      }
+      if (parcelToEdit) { setSelectedParcel(parcelToEdit); hasInitializedEdit.current = true; }
     }
   }, [initialEditId, parcels]);
 
-  // --- SİLME VE EKLEME EYLEMLERİ ---
+  // --- SİLME VE EKLEME EYLEMLERİ (Aynı Bırakıldı) ---
   const deleteParcel = async (id: string) => {
     if (!window.confirm('DİKKAT! Bu parseli sildiğinizde içindeki tüm binalar, bağımsız bölümler ve ruhsat ilişkileri KALICI olarak silinecektir. Emin misiniz?')) return;
     try {
       const res = await fetch(`/api/parcels/${id}`, { method: 'DELETE' });
       if (res.ok) {
-        setSelectedParcel(null);
-        fetchParcels();
-        if (onDataChanged) onDataChanged(id); // YENİ: Haritayı ve App'i uyar!
+        setSelectedParcel(null); fetchParcels();
+        if (onDataChanged) onDataChanged(id);
       } else alert("Parsel silinemedi.");
     } catch (err) { console.error(err); }
   };
@@ -104,11 +83,9 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
   const addStructure = async () => {
     const name = prompt("Yeni Yapı/Bina Adı Giriniz (Örn: İdari Bina, Fabrika Hol-1, Depo):");
     if (!name || !selectedParcel) return;
-
     try {
       const res = await fetch('/api/structures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ parcel_id: selectedParcel.id, name, building_type: 'Bina' })
       });
       if (res.ok) fetchParcels();
@@ -120,11 +97,9 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
     if (!unitNo) return;
     const name = prompt(`No: ${unitNo} olan bu Bağımsız Bölümün NİTELİĞİ nedir?\n(Tapu/İskan belgesindeki gibi. Örn: Dükkan, İmalathane, Ofis):`, "İmalathane");
     if (!name) return;
-
     try {
       const res = await fetch('/api/independent-units', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ structure_id: structureId, name, unit_no: unitNo })
       });
       if (res.ok) fetchParcels();
@@ -156,7 +131,7 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
     } catch (err) { console.error(err); }
   };
 
-  // --- ATAMA MODAL YÖNETİMİ ---
+  // --- ATAMA MODAL YÖNETİMİ (Aynı Bırakıldı) ---
   const openAssignModal = (type: 'parcel' | 'unit', targetId: string) => {
     setAssignTarget({ type, id: targetId });
     setModalMode('select');
@@ -175,8 +150,7 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
     try {
       if (modalMode === 'create') {
         const entityRes = await fetch('/api/entities', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(entityForm)
         });
         if (!entityRes.ok) throw new Error("Yeni paydaş oluşturulamadı.");
@@ -184,40 +158,24 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
         targetEntityId = entityData.id;
       }
 
-      if (!targetEntityId) {
-        alert("Lütfen bir firma/kişi seçin veya yenisini oluşturun.");
-        return;
-      }
+      if (!targetEntityId) { alert("Lütfen bir firma/kişi seçin veya yenisini oluşturun."); return; }
 
       if (assignTarget.type === 'unit') {
         const res = await fetch('/api/unit-entities', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            unit_id: assignTarget.id,
-            entity_id: targetEntityId,
-            role: linkForm.role,
-            has_work_license: linkForm.has_work_license
-          })
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unit_id: assignTarget.id, entity_id: targetEntityId, role: linkForm.role, has_work_license: linkForm.has_work_license })
         });
         if (!res.ok) throw new Error("Bağımsız bölüme atama başarısız.");
       }
       else if (assignTarget.type === 'parcel') {
         const res = await fetch('/api/parcel-entities', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            parcel_id: assignTarget.id,
-            entity_id: targetEntityId,
-            share_percentage: sharePercentage
-          })
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ parcel_id: assignTarget.id, entity_id: targetEntityId, share_percentage: sharePercentage })
         });
         if (!res.ok) throw new Error("Mülk sahibi ataması başarısız.");
       }
 
-      setIsModalOpen(false);
-      fetchParcels();
-      fetchEntities();
+      setIsModalOpen(false); fetchParcels(); fetchEntities();
     } catch (err: any) { alert(`Hata: ${err.message}`); }
   };
 
@@ -226,9 +184,7 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
       (p.name || '').toLowerCase().includes(searchTerm.toLowerCase());
     if (!matchesSearch) return false;
 
-    let totalUnits = 0;
-    let occupiedUnits = 0;
-    let missingLicense = false;
+    let totalUnits = 0; let occupiedUnits = 0; let missingLicense = false;
 
     p.structures?.forEach((s: any) => {
       s.units?.forEach((u: any) => {
@@ -267,12 +223,12 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
   const stats = calculateStats();
 
   return (
-    <div className="absolute inset-0 bg-slate-950/80 z-[999] p-6 lg:p-8 flex flex-col overflow-hidden backdrop-blur-md select-none font-sans">
+    <div className="absolute inset-0 bg-gray-900/60 z-[999] p-6 lg:p-8 flex flex-col overflow-hidden backdrop-blur-sm select-none font-sans">
 
-      {/* ÜST PANEL / HEADER */}
-      <div className="flex justify-between items-center mb-6 bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-lg">
+      {/* ÜST PANEL / HEADER - Kurumsal Koyu Lacivert */}
+      <div className="flex justify-between items-center mb-6 bg-[#1a2d42] p-4 rounded-xl shadow-lg border border-[#1a2d42]">
         <div className="flex items-center gap-4">
-          <div className="bg-white p-1.5 rounded-lg shadow-sm h-12 w-12 flex items-center justify-center border border-slate-300">
+          <div className="bg-white p-1.5 rounded shadow-sm h-12 w-12 flex items-center justify-center border border-gray-300">
             <img 
               src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
               alt="OSB Logo" 
@@ -280,16 +236,16 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
             />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-100 tracking-tight leading-tight">
+            <h2 className="text-xl font-bold text-white tracking-tight leading-tight">
               OSB Yönetim ve Denetim Paneli
             </h2>
-            <p className="text-xs text-slate-400 font-medium tracking-wide mt-1">
+            <p className="text-xs text-gray-300 font-normal tracking-wide mt-1">
               Organize Sanayi Bölgesi Mülkiyet, Yapı ve Ruhsat Kontrol Merkezi
             </p>
           </div>
         </div>
         
-        <button onClick={onClose} className="px-4 py-2 bg-slate-800 hover:bg-rose-500 hover:text-white text-slate-300 border border-slate-600 rounded-lg transition-all cursor-pointer font-medium flex items-center gap-2 shadow-sm">
+        <button onClick={onClose} className="px-4 py-2 bg-transparent hover:bg-white hover:text-[#1a2d42] text-white border border-white rounded transition-colors cursor-pointer font-bold flex items-center gap-2 shadow-sm text-sm">
           <X size={18} /> Paneli Kapat
         </button>
       </div>
@@ -298,16 +254,16 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
       <div className="flex flex-1 gap-6 overflow-hidden relative">
 
         {/* SOL KOLON: PARSEL LİSTELEME VE FİLTRELER */}
-        <div className="w-1/3 min-w-[350px] flex flex-col border border-slate-700 rounded-xl bg-slate-900 overflow-hidden shadow-xl">
+        <div className="w-1/3 min-w-[350px] flex flex-col border border-gray-200 rounded-xl bg-white overflow-hidden shadow-xl">
 
           {/* Arama Kutusu */}
-          <div className="p-4 bg-slate-800/80 border-b border-slate-700">
+          <div className="p-4 border-b border-gray-200 bg-gray-50">
             <div className="relative">
-              <Search className="absolute left-3.5 top-3 h-5 w-5 text-slate-400" />
+              <Search className="absolute left-3.5 top-3 h-5 w-5 text-gray-400" />
               <input
                 type="text"
                 placeholder="Ada/Parsel No veya Tanım Ara..."
-                className="w-full bg-slate-900 border border-slate-600 rounded-lg pl-11 p-2.5 text-sm text-slate-100 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                className="w-full bg-white border border-gray-300 rounded p-2.5 pl-11 text-sm text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad] transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -315,35 +271,34 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
           </div>
 
           {/* Filtre Butonları */}
-          <div className="grid grid-cols-3 gap-2 p-3 bg-slate-800/50 border-b border-slate-700 text-xs font-semibold">
+          <div className="grid grid-cols-3 gap-2 p-3 bg-gray-100 border-b border-gray-200 text-xs font-bold">
             <button
               onClick={() => setFilterType('all')}
-              className={`py-2 px-1 rounded-md border transition-colors cursor-pointer ${filterType === 'all' ? 'bg-blue-600 text-white border-blue-500 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'}`}
+              className={`py-2 px-1 rounded border transition-colors cursor-pointer ${filterType === 'all' ? 'bg-[#3a87ad] text-white border-[#3a87ad] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
             >
               Tümü ({parcels.length})
             </button>
             <button
               onClick={() => setFilterType('empty')}
-              className={`py-2 px-1 rounded-md border transition-colors cursor-pointer ${filterType === 'empty' ? 'bg-amber-600 text-white border-amber-500 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'}`}
+              className={`py-2 px-1 rounded border transition-colors cursor-pointer ${filterType === 'empty' ? 'bg-[#3a87ad] text-white border-[#3a87ad] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
             >
               Boş Tesisler
             </button>
             <button
               onClick={() => setFilterType('unlicensed')}
-              className={`py-2 px-1 rounded-md border transition-colors cursor-pointer ${filterType === 'unlicensed' ? 'bg-rose-600 text-white border-rose-500 shadow-sm' : 'bg-slate-800 text-slate-300 border-slate-600 hover:bg-slate-700'}`}
+              className={`py-2 px-1 rounded border transition-colors cursor-pointer ${filterType === 'unlicensed' ? 'bg-[#8b0000] text-white border-[#8b0000] shadow-sm' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}
             >
               Ruhsatsızlar
             </button>
           </div>
 
           {/* Parsel Listesi */}
-          <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900">
+          <div className="flex-1 overflow-y-auto custom-scrollbar bg-white">
             {filteredParcels.length === 0 ? (
-              <div className="p-10 text-center text-slate-500 text-sm">Kriterlere uygun parsel kaydı bulunamadı.</div>
+              <div className="p-10 text-center text-gray-500 text-sm">Kriterlere uygun parsel kaydı bulunamadı.</div>
             ) : (
               filteredParcels.map(parcel => {
-                let uCount = 0;
-                let missingLic = false;
+                let uCount = 0; let missingLic = false;
                 parcel.structures?.forEach((s: any) => {
                   s.units?.forEach((u: any) => {
                     uCount++;
@@ -355,20 +310,20 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
                   <div
                     key={parcel.id}
                     onClick={() => setSelectedParcel(parcel)}
-                    className={`p-4 border-b border-slate-800 cursor-pointer transition-all flex justify-between items-center group ${selectedParcel?.id === parcel.id ? 'bg-blue-900/20 border-l-4 border-l-blue-500' : 'hover:bg-slate-800/80 border-l-4 border-l-transparent'}`}
+                    className={`p-4 border-b border-gray-100 cursor-pointer transition-all flex justify-between items-center group ${selectedParcel?.id === parcel.id ? 'bg-blue-50 border-l-4 border-l-[#3a87ad]' : 'hover:bg-gray-50 border-l-4 border-l-transparent'}`}
                   >
                     <div>
-                      <h3 className="font-bold text-sm text-slate-200">
+                      <h3 className="font-bold text-sm text-[#1a2d42]">
                         {parcel.ada_parsel ? `Ada/Parsel: ${parcel.ada_parsel}` : parcel.name}
                       </h3>
-                      <p className="text-xs text-slate-400 mt-1.5 flex items-center gap-2 font-medium">
-                        <span className="flex items-center gap-1"><Building2 size={12}/> {parcel.structures?.length || 0} Yapı</span>
-                        <span className="text-slate-600">•</span>
-                        <span className="flex items-center gap-1"><DoorOpen size={12}/> {uCount} Bölüm</span>
+                      <p className="text-xs text-gray-500 mt-1.5 flex items-center gap-2 font-normal">
+                        <span className="flex items-center gap-1"><Building2 size={12} className="text-[#3a87ad]"/> {parcel.structures?.length || 0} Yapı</span>
+                        <span className="text-gray-300">•</span>
+                        <span className="flex items-center gap-1"><DoorOpen size={12} className="text-[#3a87ad]"/> {uCount} Bölüm</span>
                       </p>
                     </div>
                     {missingLic && (
-                      <span title="Ruhsatsız işletme tespit edildi!" className="text-rose-400 bg-rose-500/10 p-1.5 rounded-md border border-rose-500/20">
+                      <span title="Ruhsatsız işletme tespit edildi!" className="text-[#8b0000] bg-red-50 p-1.5 rounded border border-red-200">
                         <ShieldAlert size={16} />
                       </span>
                     )}
@@ -380,30 +335,30 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
         </div>
 
         {/* SAĞ KOLON: SEÇİLİ PARSEL DETAYLARI */}
-        <div className="w-2/3 flex flex-col border border-slate-700 rounded-xl bg-slate-900 overflow-hidden shadow-xl">
+        <div className="w-2/3 flex flex-col border border-gray-200 rounded-xl bg-white overflow-hidden shadow-xl">
           {selectedParcel ? (
             <div className="flex flex-col h-full">
 
               {/* SAĞ PANEL ÜST AKSİYON BARI */}
-              <div className="p-5 bg-slate-800/80 border-b border-slate-700 flex justify-between items-center">
+              <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white">
                 <div>
-                  <div className="flex items-center gap-2 text-xs font-semibold text-blue-400 mb-1">
+                  <div className="flex items-center gap-2 text-xs font-bold text-[#3a87ad] mb-1">
                     <Map size={14} /> Mülkiyet Detay Kartı
                   </div>
-                  <h3 className="text-xl font-bold text-slate-100">
+                  <h3 className="text-xl font-bold text-[#1a2d42]">
                     {selectedParcel.ada_parsel || selectedParcel.name}
                   </h3>
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => deleteParcel(selectedParcel.id)}
-                    className="flex items-center gap-2 bg-slate-800 text-rose-400 border border-slate-600 hover:bg-rose-600 hover:text-white hover:border-rose-600 px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer shadow-sm"
+                    className="flex items-center gap-2 bg-white text-[#8b0000] border border-[#8b0000] hover:bg-[#8b0000] hover:text-white px-4 py-2 rounded text-sm font-bold transition-colors cursor-pointer shadow-sm"
                   >
                     <Trash2 size={16} /> Parseli Sil
                   </button>
                   <button
                     onClick={addStructure}
-                    className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer shadow-sm"
+                    className="flex items-center gap-2 bg-[#5cb85c] hover:bg-[#4cae4c] text-white px-4 py-2 rounded text-sm font-bold transition-colors cursor-pointer shadow-sm"
                   >
                     <Plus size={16} /> Yeni Yapı/Bina Ekle
                   </button>
@@ -411,59 +366,59 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
               </div>
 
               {/* İSTATİSTİK KARTLARI */}
-              <div className="grid grid-cols-4 gap-4 p-5 bg-slate-900 border-b border-slate-800">
-                <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-sm">
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Fiziksel Yapı</p>
-                  <p className="text-2xl font-bold text-blue-400 mt-2">{stats.totalStructures}</p>
+              <div className="grid grid-cols-4 gap-4 p-5 bg-gray-50 border-b border-gray-200">
+                <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Fiziksel Yapı</p>
+                  <p className="text-2xl font-bold text-[#1a2d42] mt-2">{stats.totalStructures}</p>
                 </div>
-                <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-sm">
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Bağımsız Birim</p>
-                  <p className="text-2xl font-bold text-indigo-400 mt-2">{stats.totalUnits}</p>
+                <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Bağımsız Birim</p>
+                  <p className="text-2xl font-bold text-[#1a2d42] mt-2">{stats.totalUnits}</p>
                 </div>
-                <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-sm">
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Aktif İşletme</p>
-                  <p className="text-2xl font-bold text-amber-400 mt-2">{stats.totalOccupants}</p>
+                <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Aktif İşletme</p>
+                  <p className="text-2xl font-bold text-[#1a2d42] mt-2">{stats.totalOccupants}</p>
                 </div>
-                <div className="bg-slate-800 border border-slate-700 p-4 rounded-lg shadow-sm">
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Ruhsat Oranı</p>
-                  <p className={`text-2xl font-bold mt-2 ${stats.licenseRate === 100 ? 'text-emerald-400' : stats.licenseRate > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                <div className="bg-white border border-gray-200 p-4 rounded shadow-sm">
+                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wide">Ruhsat Oranı</p>
+                  <p className={`text-2xl font-bold mt-2 ${stats.licenseRate === 100 ? 'text-[#5cb85c]' : stats.licenseRate > 0 ? 'text-amber-500' : 'text-[#8b0000]'}`}>
                     %{stats.licenseRate}
                   </p>
                 </div>
               </div>
 
               {/* İÇERİK ALANI */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-slate-900">
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-white">
 
                 {/* ARSA MALİKLERİ */}
-                <div className="bg-slate-800 border border-slate-700 rounded-lg shadow-sm overflow-hidden">
-                  <div className="flex justify-between items-center p-4 bg-slate-800/80 border-b border-slate-700">
-                    <h4 className="text-sm font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-2">
+                <div className="bg-white border border-gray-200 rounded shadow-sm overflow-hidden">
+                  <div className="flex justify-between items-center p-4 bg-[#3a87ad] text-white border-b border-gray-200">
+                    <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                       <Users size={16} /> Arsa Malikleri Listesi
                     </h4>
                     <button
                       onClick={() => openAssignModal('parcel', selectedParcel.id)}
-                      className="flex items-center gap-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-3 py-1.5 rounded-md text-xs font-bold transition-colors cursor-pointer"
+                      className="flex items-center gap-1.5 bg-white text-[#3a87ad] hover:bg-gray-100 px-3 py-1.5 rounded text-xs font-bold transition-colors cursor-pointer"
                     >
                       <Plus size={14} /> Malik Ata
                     </button>
                   </div>
 
-                  <div className="p-4 space-y-2">
+                  <div className="p-4 space-y-2 bg-gray-50">
                     {(!selectedParcel.owners || selectedParcel.owners.length === 0) ? (
-                      <p className="text-sm text-slate-500 italic text-center py-4 bg-slate-900/50 rounded-md border border-slate-800">Sisteme kayıtlı arsa maliki bulunmamaktadır.</p>
+                      <p className="text-sm text-gray-500 italic text-center py-4 bg-white rounded border border-gray-200">Sisteme kayıtlı arsa maliki bulunmamaktadır.</p>
                     ) : (
                       selectedParcel.owners.map((owner: any) => (
-                        <div key={owner.id} className="group bg-slate-900 border border-slate-700 hover:border-slate-500 p-3 rounded-md flex justify-between items-center transition-colors">
+                        <div key={owner.id} className="group bg-white border border-gray-200 p-3 rounded flex justify-between items-center transition-colors">
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-slate-200">{owner.name}</span>
-                            <span className="text-xs text-slate-400 font-medium mt-0.5">Tip: {owner.type} {owner.tc_vkn && `| VKN/TC: ${owner.tc_vkn}`}</span>
+                            <span className="text-sm font-bold text-[#1a2d42]">{owner.name}</span>
+                            <span className="text-xs text-gray-600 font-normal mt-0.5"><span className="font-bold">Tip:</span> {owner.type} {owner.tc_vkn && `| VKN/TC: ${owner.tc_vkn}`}</span>
                           </div>
                           <div className="flex items-center gap-4">
-                            <span className="text-xs font-bold text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 rounded-md">
+                            <span className="text-xs font-bold text-[#1a2d42] bg-gray-100 border border-gray-300 px-2.5 py-1 rounded">
                               HİSSE: %{owner.share_percentage}
                             </span>
-                            <button onClick={() => removeOccupant(owner.id, 'parcel')} className="text-slate-500 hover:text-rose-500 transition-colors p-1" title="Maliki Çıkar">
+                            <button onClick={() => removeOccupant(owner.id, 'parcel')} className="text-gray-400 hover:text-[#8b0000] transition-colors p-1" title="Maliki Çıkar">
                               <Trash2 size={16} />
                             </button>
                           </div>
@@ -475,53 +430,53 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
 
                 {/* YAPILAR VE BAĞIMSIZ BÖLÜMLER */}
                 <div>
-                  <div className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4 flex items-center gap-2 border-b border-slate-700 pb-2">
-                    <Building size={16} /> Mimari Yapılar ve İşletmeler
+                  <div className="text-sm font-bold uppercase tracking-wider text-[#1a2d42] mb-4 flex items-center gap-2 border-b border-gray-300 pb-2">
+                    <Building size={16} className="text-[#3a87ad]" /> Mimari Yapılar ve İşletmeler
                   </div>
 
                   {selectedParcel.structures?.length === 0 ? (
-                    <div className="text-center text-slate-500 text-sm py-10 bg-slate-800 border border-dashed border-slate-600 rounded-lg">
+                    <div className="text-center text-gray-500 text-sm py-10 bg-gray-50 border border-dashed border-gray-300 rounded">
                       Bu parsel üzerinde henüz fiziksel bir yapı (bina) tanımlanmamış.
                     </div>
                   ) : (
                     <div className="space-y-4">
                       {selectedParcel.structures.map((structure: any) => (
-                        <div key={structure.id} className="bg-slate-800 border border-slate-700 rounded-lg overflow-hidden shadow-sm">
+                        <div key={structure.id} className="bg-white border border-gray-200 rounded overflow-hidden shadow-sm">
 
                           {/* Bina Başlığı */}
-                          <div className="flex justify-between items-center p-3.5 bg-slate-800/80 border-b border-slate-700 group">
+                          <div className="flex justify-between items-center p-3.5 bg-gray-100 border-b border-gray-200 group">
                             <div className="flex items-center gap-3">
-                              <h5 className="font-bold text-sm text-blue-400 flex items-center gap-2">
-                                <Building2 size={16} /> {structure.name}
+                              <h5 className="font-bold text-sm text-[#1a2d42] flex items-center gap-2">
+                                <Building2 size={16} className="text-[#3a87ad]" /> {structure.name}
                               </h5>
-                              <button onClick={() => deleteStructure(structure.id, structure.name)} className="text-slate-500 hover:text-rose-400 opacity-0 group-hover:opacity-100 transition-opacity" title="Yapıyı Sil">
+                              <button onClick={() => deleteStructure(structure.id, structure.name)} className="text-gray-400 hover:text-[#8b0000] opacity-0 group-hover:opacity-100 transition-opacity" title="Yapıyı Sil">
                                 <Trash2 size={14} />
                               </button>
                             </div>
                             <button
                               onClick={() => addIndependentUnit(structure.id, structure.name)}
-                              className="flex items-center gap-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer border border-slate-600"
+                              className="flex items-center gap-1.5 bg-[#1a2d42] hover:bg-[#2c4c70] text-white px-3 py-1.5 rounded text-xs font-bold transition-colors cursor-pointer"
                             >
                               <Plus size={14} /> Bağımsız Bölüm Ekle
                             </button>
                           </div>
 
                           {/* Bağımsız Bölümler */}
-                          <div className="p-3 space-y-3 bg-slate-900">
+                          <div className="p-3 space-y-3 bg-gray-50">
                             {(!structure.units || structure.units.length === 0) ? (
-                              <p className="text-sm text-slate-500 italic p-3 text-center border border-dashed border-slate-700 rounded-md">Bina içerisinde bağımsız bölüm kaydı yok.</p>
+                              <p className="text-sm text-gray-500 italic p-3 text-center border border-dashed border-gray-300 rounded bg-white">Bina içerisinde bağımsız bölüm kaydı yok.</p>
                             ) : (
                               structure.units.map((unit: any) => (
-                                <div key={unit.id} className="bg-slate-800 border border-slate-700 rounded-md p-3 group/unit shadow-sm">
+                                <div key={unit.id} className="bg-white border border-gray-200 rounded p-3 group/unit shadow-sm">
 
-                                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-slate-700/50">
+                                  <div className="flex justify-between items-center mb-3 pb-2 border-b border-gray-100">
                                     <div className="flex items-center gap-2 text-sm">
-                                      <DoorOpen size={16} className="text-amber-500" />
-                                      <span className="font-bold text-amber-400">Bölüm No: {unit.unit_no}</span>
-                                      <span className="text-slate-400 font-medium">({unit.name})</span>
+                                      <DoorOpen size={16} className="text-[#3a87ad]" />
+                                      <span className="font-bold text-[#1a2d42]">Bölüm No: {unit.unit_no}</span>
+                                      <span className="text-gray-500 font-normal">({unit.name})</span>
                                       <button
                                         onClick={() => deleteUnit(unit.id, unit.name)}
-                                        className="text-slate-500 hover:text-rose-400 opacity-0 group-hover/unit:opacity-100 transition-opacity ml-2"
+                                        className="text-gray-400 hover:text-[#8b0000] opacity-0 group-hover/unit:opacity-100 transition-opacity ml-2"
                                         title="Bölümü Sil"
                                       >
                                         <Trash2 size={14} />
@@ -529,7 +484,7 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
                                     </div>
                                     <button
                                       onClick={() => openAssignModal('unit', unit.id)}
-                                      className="flex items-center gap-1.5 text-blue-300 bg-blue-500/10 border border-blue-500/20 hover:bg-blue-500/20 px-2.5 py-1 rounded-md text-xs font-semibold transition-colors cursor-pointer"
+                                      className="flex items-center gap-1.5 text-white bg-[#3a87ad] hover:bg-[#2b6582] px-2.5 py-1 rounded text-xs font-bold transition-colors cursor-pointer"
                                     >
                                       <Plus size={12} /> İşletme/Kiracı Ata
                                     </button>
@@ -537,25 +492,25 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
 
                                   {/* Sakinler / İşletmeler */}
                                   {(!unit.occupants || unit.occupants.length === 0) ? (
-                                    <div className="flex items-center gap-2 text-xs text-amber-500/80 bg-amber-500/5 p-2 rounded border border-amber-500/10">
-                                      <AlertTriangle size={14} /> Bölüm boş, faaliyet yok.
+                                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-gray-50 p-2 rounded border border-gray-200">
+                                      <AlertTriangle size={14} className="text-amber-500" /> Bölüm boş, faaliyet yok.
                                     </div>
                                   ) : (
                                     <div className="space-y-2">
                                       {unit.occupants.map((occ: any) => (
-                                        <div key={occ.id} className="bg-slate-900 border border-slate-600 p-2.5 rounded-md group/occ flex flex-col gap-2 hover:border-slate-500 transition-colors">
+                                        <div key={occ.id} className="bg-white border border-gray-200 p-2.5 rounded group/occ flex flex-col gap-2 hover:border-[#3a87ad] transition-colors">
                                           <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2.5">
-                                              <span className="text-sm font-bold text-slate-200">{occ.name}</span>
-                                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${occ.role === 'Malik' ? 'text-indigo-300 bg-indigo-500/10 border-indigo-500/30' : 'text-amber-300 bg-amber-500/10 border-amber-500/30'}`}>
+                                              <span className="text-sm font-bold text-[#1a2d42]">{occ.name}</span>
+                                              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${occ.role === 'Malik' ? 'text-[#1a2d42] bg-gray-100 border-gray-300' : 'text-[#3a87ad] bg-blue-50 border-blue-200'}`}>
                                                 {occ.role}
                                               </span>
                                             </div>
                                             <div className="flex items-center gap-3">
-                                              <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded-md border ${occ.has_work_license ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30' : 'text-rose-400 bg-rose-500/10 border-rose-500/30'}`}>
+                                              <div className={`flex items-center gap-1.5 text-xs font-bold px-2.5 py-1 rounded border ${occ.has_work_license ? 'text-[#5cb85c] bg-green-50 border-green-200' : 'text-[#8b0000] bg-red-50 border-red-200'}`}>
                                                 {occ.has_work_license ? <><CheckCircle2 size={14}/> RUHSAT ONAYLI</> : <><ShieldAlert size={14}/> RUHSATSIZ</>}
                                               </div>
-                                              <button onClick={() => removeOccupant(occ.id, 'unit')} className="text-slate-500 hover:text-rose-500 opacity-0 group-hover/occ:opacity-100 transition-opacity p-1">
+                                              <button onClick={() => removeOccupant(occ.id, 'unit')} className="text-gray-400 hover:text-[#8b0000] opacity-0 group-hover/occ:opacity-100 transition-opacity p-1">
                                                 <X size={16} />
                                               </button>
                                             </div>
@@ -577,42 +532,42 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
               </div>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-900">
-              <div className="bg-slate-800 p-6 rounded-full mb-4 border border-slate-700">
-                <BarChart3 size={48} className="text-slate-600" />
+            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 bg-white">
+              <div className="bg-gray-50 p-6 rounded-full mb-4 border border-gray-200">
+                <BarChart3 size={48} className="text-gray-300" />
               </div>
-              <p className="text-base font-semibold">Sistem Yönetimi</p>
-              <p className="text-sm mt-1 text-slate-400">Detayları görüntülemek için sol menüden bir parsel seçin.</p>
+              <p className="text-base font-bold text-[#1a2d42]">Sistem Yönetimi</p>
+              <p className="text-sm mt-1 text-gray-500">Detayları görüntülemek için sol menüden bir parsel seçin.</p>
             </div>
           )}
 
           {/* ATAMA VE YENİ PAYDAŞ OLUŞTURMA MODALI */}
           {isModalOpen && (
-            <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-slate-800 border border-slate-600 rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white border border-gray-200 rounded-lg shadow-2xl w-full max-w-lg overflow-hidden">
 
-                <div className="p-5 bg-slate-900 border-b border-slate-700 flex justify-between items-center">
-                  <h3 className="font-bold text-sm tracking-wide text-blue-400 flex items-center gap-2">
+                <div className="p-5 bg-[#3a87ad] border-b border-[#3a87ad] flex justify-between items-center text-white">
+                  <h3 className="font-bold text-sm tracking-wide flex items-center gap-2">
                     <User size={18} />
                     {assignTarget?.type === 'unit' ? 'Bağımsız Bölüme Tesis / Kiracı Ata' : 'Arsa Mülkiyetine Malik Ata'}
                   </h3>
-                  <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-white cursor-pointer bg-slate-800 p-1 rounded-md"><X size={20} /></button>
+                  <button onClick={() => setIsModalOpen(false)} className="text-white/80 hover:text-white cursor-pointer bg-white/10 hover:bg-white/20 p-1 rounded transition-colors"><X size={20} /></button>
                 </div>
 
-                <form onSubmit={handleSaveOccupant} className="p-6 space-y-5">
+                <form onSubmit={handleSaveOccupant} className="p-6 space-y-5 bg-gray-50">
 
                   {/* Sistem Seçimi / Yeni Oluştur Sekmesi */}
-                  <div className="flex bg-slate-900 p-1.5 rounded-lg border border-slate-700 text-sm font-semibold">
-                    <button type="button" onClick={() => setModalMode('select')} className={`flex-1 py-2.5 rounded-md transition-all cursor-pointer ${modalMode === 'select' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}>Kayıtlı Kurumlardan Seç</button>
-                    <button type="button" onClick={() => setModalMode('create')} className={`flex-1 py-2.5 rounded-md transition-all cursor-pointer ${modalMode === 'create' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}>Sisteme Yeni Kurum Ekle</button>
+                  <div className="flex bg-gray-200 p-1 rounded text-sm font-bold">
+                    <button type="button" onClick={() => setModalMode('select')} className={`flex-1 py-2.5 rounded transition-all cursor-pointer ${modalMode === 'select' ? 'bg-white text-[#1a2d42] shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Kayıtlı Kurumlardan Seç</button>
+                    <button type="button" onClick={() => setModalMode('create')} className={`flex-1 py-2.5 rounded transition-all cursor-pointer ${modalMode === 'create' ? 'bg-white text-[#1a2d42] shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Sisteme Yeni Kurum Ekle</button>
                   </div>
 
                   {modalMode === 'select' ? (
-                    <div>
-                      <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Kurum / Şahıs Listesi</label>
+                    <div className="bg-white p-5 rounded border border-gray-200">
+                      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Kurum / Şahıs Listesi</label>
                       <select
                         required={modalMode === 'select'}
-                        className="w-full bg-slate-900 border border-slate-600 rounded-lg p-3 text-slate-200 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all"
+                        className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 text-sm outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad] transition-all"
                         value={selectedEntityId}
                         onChange={(e) => setSelectedEntityId(e.target.value)}
                       >
@@ -623,61 +578,61 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
                       </select>
                     </div>
                   ) : (
-                    <div className="space-y-4 bg-slate-900 p-5 rounded-lg border border-slate-700 text-sm">
+                    <div className="space-y-4 bg-white p-5 rounded border border-gray-200 text-sm">
                       <div className="flex gap-6 mb-2">
-                        <label className="flex items-center gap-2 text-slate-300 font-medium cursor-pointer">
-                          <input type="radio" checked={entityForm.type === 'Şirket'} onChange={() => setEntityForm({ ...entityForm, type: 'Şirket' })} className="accent-blue-500 w-4 h-4" /> Şirket (Tüzel)
+                        <label className="flex items-center gap-2 text-gray-800 font-bold cursor-pointer">
+                          <input type="radio" checked={entityForm.type === 'Şirket'} onChange={() => setEntityForm({ ...entityForm, type: 'Şirket' })} className="accent-[#3a87ad] w-4 h-4" /> Şirket (Tüzel)
                         </label>
-                        <label className="flex items-center gap-2 text-slate-300 font-medium cursor-pointer">
-                          <input type="radio" checked={entityForm.type === 'Kişi'} onChange={() => setEntityForm({ ...entityForm, type: 'Kişi' })} className="accent-blue-500 w-4 h-4" /> Şahıs (Gerçek)
+                        <label className="flex items-center gap-2 text-gray-800 font-bold cursor-pointer">
+                          <input type="radio" checked={entityForm.type === 'Kişi'} onChange={() => setEntityForm({ ...entityForm, type: 'Kişi' })} className="accent-[#3a87ad] w-4 h-4" /> Şahıs (Gerçek)
                         </label>
                       </div>
 
                       <div>
-                        <label className="block text-xs text-slate-400 font-bold uppercase tracking-wide mb-1.5">Unvan / Tam Ad Soyad</label>
-                        <input required={modalMode === 'create'} type="text" className="w-full bg-slate-800 border border-slate-600 rounded-md p-2.5 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all" value={entityForm.name} onChange={e => setEntityForm({ ...entityForm, name: e.target.value })} />
+                        <label className="block text-xs text-gray-600 font-bold uppercase tracking-wide mb-1.5">Unvan / Tam Ad Soyad</label>
+                        <input required={modalMode === 'create'} type="text" className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad] transition-all" value={entityForm.name} onChange={e => setEntityForm({ ...entityForm, name: e.target.value })} />
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs text-slate-400 font-bold uppercase tracking-wide mb-1.5">{entityForm.type === 'Şirket' ? 'Vergi Kimlik No' : 'TC Kimlik No'}</label>
-                          <input type="text" className="w-full bg-slate-800 border border-slate-600 rounded-md p-2.5 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={entityForm.tc_vkn} onChange={e => setEntityForm({ ...entityForm, tc_vkn: e.target.value })} />
+                          <label className="block text-xs text-gray-600 font-bold uppercase tracking-wide mb-1.5">{entityForm.type === 'Şirket' ? 'Vergi Kimlik No' : 'TC Kimlik No'}</label>
+                          <input type="text" className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={entityForm.tc_vkn} onChange={e => setEntityForm({ ...entityForm, tc_vkn: e.target.value })} />
                         </div>
                         {entityForm.type === 'Şirket' && (
                           <div>
-                            <label className="block text-xs text-slate-400 font-bold uppercase tracking-wide mb-1.5">Vergi Dairesi</label>
-                            <input type="text" className="w-full bg-slate-800 border border-slate-600 rounded-md p-2.5 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={entityForm.tax_office} onChange={e => setEntityForm({ ...entityForm, tax_office: e.target.value })} />
+                            <label className="block text-xs text-gray-600 font-bold uppercase tracking-wide mb-1.5">Vergi Dairesi</label>
+                            <input type="text" className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={entityForm.tax_office} onChange={e => setEntityForm({ ...entityForm, tax_office: e.target.value })} />
                           </div>
                         )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs text-slate-400 font-bold uppercase tracking-wide mb-1.5">İletişim (Telefon)</label>
-                          <input type="text" className="w-full bg-slate-800 border border-slate-600 rounded-md p-2.5 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={entityForm.phone} onChange={e => setEntityForm({ ...entityForm, phone: e.target.value })} />
+                          <label className="block text-xs text-gray-600 font-bold uppercase tracking-wide mb-1.5">İletişim (Telefon)</label>
+                          <input type="text" className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={entityForm.phone} onChange={e => setEntityForm({ ...entityForm, phone: e.target.value })} />
                         </div>
                         <div>
-                          <label className="block text-xs text-slate-400 font-bold uppercase tracking-wide mb-1.5">E-Posta Adresi</label>
-                          <input type="email" className="w-full bg-slate-800 border border-slate-600 rounded-md p-2.5 text-white outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={entityForm.email} onChange={e => setEntityForm({ ...entityForm, email: e.target.value })} />
+                          <label className="block text-xs text-gray-600 font-bold uppercase tracking-wide mb-1.5">E-Posta Adresi</label>
+                          <input type="email" className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={entityForm.email} onChange={e => setEntityForm({ ...entityForm, email: e.target.value })} />
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* KİLİT BAĞLANTI PARAMETRELERİ */}
-                  <div className="grid grid-cols-2 gap-5 pt-4 border-t border-slate-700">
+                  <div className="grid grid-cols-2 gap-5 pt-4 border-t border-gray-200">
                     {assignTarget?.type === 'unit' ? (
                       <>
                         <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Tesis İşletme Rolü</label>
-                          <select className="w-full bg-slate-900 border border-slate-600 rounded-md p-3 text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={linkForm.role} onChange={e => setLinkForm({ ...linkForm, role: e.target.value })}>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Tesis İşletme Rolü</label>
+                          <select className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={linkForm.role} onChange={e => setLinkForm({ ...linkForm, role: e.target.value })}>
                             <option value="Kiracı">Kiracı (Faaliyet Gösteren)</option>
                             <option value="Malik">Mülk Sahibi (Kendi İşletiyor)</option>
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">İşyeri Açma ve Çalışma Ruhsatı</label>
-                          <select className="w-full bg-slate-900 border border-slate-600 rounded-md p-3 text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({ ...linkForm, has_work_license: e.target.value === "true" })}>
+                          <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Ruhsat Durumu</label>
+                          <select className="w-full bg-white border border-gray-300 rounded p-2.5 text-gray-800 outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad]" value={linkForm.has_work_license ? "true" : "false"} onChange={e => setLinkForm({ ...linkForm, has_work_license: e.target.value === "true" })}>
                             <option value="false">Yok / Onay Aşamasında</option>
                             <option value="true">Var (Aktif ve Onaylı)</option>
                           </select>
@@ -685,16 +640,16 @@ export default function ManagementPanel({ onClose, initialEditId,onDataChanged }
                       </>
                     ) : (
                       <div className="col-span-2">
-                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Tapu Hisse Oranı (%)</label>
-                        <input type="number" min="1" max="100" className="w-full bg-slate-900 border border-slate-600 rounded-md p-3 text-slate-200 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono text-lg" value={sharePercentage} onChange={e => setSharePercentage(Number(e.target.value))} />
+                        <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-2">Tapu Hisse Oranı (%)</label>
+                        <input type="number" min="1" max="100" className="w-full bg-white border border-gray-300 rounded p-2.5 text-[#1a2d42] outline-none focus:border-[#3a87ad] focus:ring-1 focus:ring-[#3a87ad] font-bold text-lg" value={sharePercentage} onChange={e => setSharePercentage(Number(e.target.value))} />
                       </div>
                     )}
                   </div>
 
                   {/* MODAL ETKİLEŞİM BUTONLARI */}
-                  <div className="pt-5 flex justify-end gap-3 text-sm font-bold">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors cursor-pointer border border-slate-600">İptal Et</button>
-                    <button type="submit" className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-2.5 rounded-lg shadow-lg transition-colors cursor-pointer flex items-center gap-2">
+                  <div className="pt-2 flex justify-end gap-3 text-sm font-bold">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded transition-colors cursor-pointer border border-gray-300">İptal Et</button>
+                    <button type="submit" className="bg-[#5cb85c] hover:bg-[#4cae4c] text-white px-6 py-2.5 rounded shadow-sm transition-colors cursor-pointer flex items-center gap-2">
                       <CheckCircle2 size={18}/> Sisteme Kaydet
                     </button>
                   </div>
