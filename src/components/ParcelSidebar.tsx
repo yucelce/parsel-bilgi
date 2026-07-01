@@ -36,6 +36,29 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
 
   const title = parcel.ada_parsel ? `Ada/Parsel: ${parcel.ada_parsel}` : parcel.name;
 
+  // HATA BURADAYDI: stats objesi hesaplanmıyordu. Aşağıdaki hesaplama mantığı eklendi:
+  let totalStructures = parcel.structures?.length || 0;
+  let totalUnits = 0, totalOccupants = 0, licensedOccupants = 0;
+
+  parcel.structures?.forEach((s: any) => {
+    s.units?.forEach((u: any) => {
+      totalUnits++;
+      if (u.occupants) {
+        totalOccupants += u.occupants.length;
+        u.occupants.forEach((o: any) => { if (o.has_work_license) licensedOccupants++; });
+      }
+    });
+  });
+
+  let licenseRate = totalOccupants > 0 ? Math.round((licensedOccupants / totalOccupants) * 100) : 0;
+  
+  const stats = {
+    totalStructures,
+    totalUnits,
+    totalOccupants,
+    licenseRate
+  };
+
   return (
     <div className="absolute top-0 left-0 h-full w-[350px] bg-slate-900 border-r border-slate-700 shadow-2xl z-[500] flex flex-col text-slate-200 select-none transform transition-transform duration-300">
       
@@ -47,31 +70,30 @@ export default function ParcelSidebar({ parcel, onClose, onManage }: ParcelSideb
           </div>
           <h2 className="text-lg font-bold text-slate-50 leading-tight">{title}</h2>
           
-          {/* YENİ GÜNCELLENEN DURUM VE ALAN BİLGİSİ SATIRI */}
           {/* İSTATİSTİK KARTLARI (Kompakt Tek Satır) */}
-              <div className="flex flex-wrap items-center gap-6 px-5 py-2.5 bg-slate-800/50 border-b border-slate-700 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Fiziksel Yapı:</span>
-                  <span className="font-bold text-blue-400">{stats.totalStructures}</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Bağımsız Birim:</span>
-                  <span className="font-bold text-indigo-400">{stats.totalUnits}</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Aktif İşletme:</span>
-                  <span className="font-bold text-amber-400">{stats.totalOccupants}</span>
-                </div>
-                
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Ruhsat Oranı:</span>
-                  <span className={`font-bold ${stats.licenseRate === 100 ? 'text-emerald-400' : stats.licenseRate > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
-                    %{stats.licenseRate}
-                  </span>
-                </div>
-              </div>
+          <div className="flex flex-wrap items-center gap-6 px-5 py-2.5 bg-slate-800/50 border-b border-slate-700 text-sm mt-3 -mx-5 -mb-5">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Fiziksel Yapı:</span>
+              <span className="font-bold text-blue-400">{stats.totalStructures}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Bağımsız Birim:</span>
+              <span className="font-bold text-indigo-400">{stats.totalUnits}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Aktif İşletme:</span>
+              <span className="font-bold text-amber-400">{stats.totalOccupants}</span>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wide">Ruhsat Oranı:</span>
+              <span className={`font-bold ${stats.licenseRate === 100 ? 'text-emerald-400' : stats.licenseRate > 0 ? 'text-amber-400' : 'text-rose-400'}`}>
+                %{stats.licenseRate}
+              </span>
+            </div>
+          </div>
         </div>
         <button onClick={onClose} className="text-slate-400 hover:text-white hover:bg-red-500/20 p-1.5 rounded-md transition-colors cursor-pointer">
           <X size={20} />
