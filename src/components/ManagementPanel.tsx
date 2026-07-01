@@ -53,8 +53,8 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
 
   const fetchEntities = () => {
     fetch('/api/entities').then(res => res.json()).then(data => {
-        if (Array.isArray(data)) setEntitiesList(data);
-      }).catch(err => console.error("Paydaş hatası:", err));
+      if (Array.isArray(data)) setEntitiesList(data);
+    }).catch(err => console.error("Paydaş hatası:", err));
   };
 
   useEffect(() => { fetchParcels(); fetchEntities(); }, []);
@@ -211,9 +211,9 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
       <div className="flex justify-between items-center mb-4 bg-[#1a2d42] p-3 rounded-xl shadow-lg border border-[#1a2d42] shrink-0">
         <div className="flex items-center gap-4">
           <div className="bg-white p-1 rounded shadow-sm h-10 w-10 flex items-center justify-center border border-gray-300">
-            <img 
-              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png" 
-              alt="OSB Logo" 
+            <img
+              src="https://static.wixstatic.com/media/0ded6e_0a74b2a1d6614c4b99998cde8a9d165c~mv2.png"
+              alt="OSB Logo"
               className="max-h-full max-w-full object-contain"
             />
           </div>
@@ -226,7 +226,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
             </p>
           </div>
         </div>
-        
+
         <button onClick={onClose} className="px-3 py-1.5 bg-transparent hover:bg-white hover:text-[#1a2d42] text-white border border-white rounded transition-colors cursor-pointer font-bold flex items-center gap-1.5 shadow-sm text-xs">
           <X size={16} /> Kapat
         </button>
@@ -275,7 +275,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
           <>
             {/* 2. SÜTUN: MALİKLER VE ÖZET */}
             <div className="w-[320px] shrink-0 flex flex-col border border-gray-200 rounded-xl bg-white overflow-hidden shadow-xl">
-              
+
               {/* Parsel Başlığı ve Aksiyonlar */}
               <div className="p-4 border-b border-gray-200 bg-white shrink-0">
                 <div className="flex items-center gap-1.5 text-[10px] font-bold text-[#3a87ad] mb-0.5">
@@ -445,7 +445,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
                                               {occ.role}
                                             </span>
                                             <div className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded border ${occ.has_work_license ? 'text-[#5cb85c] bg-green-50 border-green-200' : 'text-[#8b0000] bg-red-50 border-red-200'}`}>
-                                              {occ.has_work_license ? <><CheckCircle2 size={10}/> ONAYLI</> : <><ShieldAlert size={10}/> RUHSATSIZ</>}
+                                              {occ.has_work_license ? <><CheckCircle2 size={10} /> ONAYLI</> : <><ShieldAlert size={10} /> RUHSATSIZ</>}
                                             </div>
                                           </div>
                                         </div>
@@ -580,7 +580,7 @@ export default function ManagementPanel({ onClose, initialEditId, onDataChanged 
                 <div className="pt-2 flex justify-end gap-2 text-xs font-bold">
                   <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-gray-600 hover:text-gray-900 bg-white hover:bg-gray-100 rounded transition-colors cursor-pointer border border-gray-300">İptal</button>
                   <button type="submit" className="bg-[#5cb85c] hover:bg-[#4cae4c] text-white px-5 py-2 rounded shadow-sm transition-colors cursor-pointer flex items-center gap-1.5">
-                    <CheckCircle2 size={14}/> Kaydet
+                    <CheckCircle2 size={14} /> Kaydet
                   </button>
                 </div>
               </form>
