@@ -9,9 +9,10 @@ import {
 interface ManagementPanelProps {
   onClose: () => void;
   initialEditId?: string | null;
+  onDataChanged?: (deletedParcelId?: string) => void;
 }
 
-export default function ManagementPanel({ onClose, initialEditId }: ManagementPanelProps) {
+export default function ManagementPanel({ onClose, initialEditId,onDataChanged }: ManagementPanelProps) {
   // --- STATE TANIMLAMALARI ---
   const [parcels, setParcels] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -95,6 +96,7 @@ export default function ManagementPanel({ onClose, initialEditId }: ManagementPa
       if (res.ok) {
         setSelectedParcel(null);
         fetchParcels();
+        if (onDataChanged) onDataChanged(id); // YENİ: Haritayı ve App'i uyar!
       } else alert("Parsel silinemedi.");
     } catch (err) { console.error(err); }
   };

@@ -39,9 +39,10 @@ interface ParcelMapProps {
   onSelectParcel?: (parcel: any) => void;
   selectedParcelId?: string | null;
   onOpenAdmin?: () => void;
+  refreshTrigger?: number;
 }
 
-export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId, onOpenAdmin }: ParcelMapProps) {
+export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcelId, onOpenAdmin, refreshTrigger }: ParcelMapProps) {
   const defaultCenter: [number, number] = [39.92077, 32.85411]; 
   const [currentZoom, setCurrentZoom] = useState<number>(6); 
   const [parcels, setParcels] = useState<any[]>([]);
@@ -100,6 +101,11 @@ export default function ParcelMap({ onEditParcel, onSelectParcel, selectedParcel
   useEffect(() => {
     fetchParcels(true); 
   }, []);
+
+  useEffect(() => {
+    // refreshTrigger 0 ise ilk yüklemedir (haritayı ortala), 0'dan büyükse sadece veriyi güncelle
+    fetchParcels(refreshTrigger === 0); 
+  }, [refreshTrigger]);
 
   const handleCreated = async (e: any) => {
     const { layerType, layer } = e;
